@@ -1,0 +1,40 @@
+# Dependencias y builds
+node_modules/
+dist/
+build/
+wheels/
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Base de datos local
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs y temporales
+*.log
+*.tmp
+*.bak
+tmp/
+temp/
+
+# IDEs y OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
