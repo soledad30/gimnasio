@@ -168,7 +168,7 @@ export function AppSidebar({ variant }: { variant: 'admin' | 'student' | 'instru
 
         <span className="text-xl font-bold tracking-tight">
 
-          Gym<span className="text-primary">Pro</span>
+          UAGRM<span className="text-primary">-GYM</span>
 
         </span>
 
