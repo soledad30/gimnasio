@@ -25,6 +25,7 @@ class Estudiante(Base):
 
     # NFC tag para control de acceso
     nfc_uid = Column(String(64), unique=True, index=True, nullable=True)
+    codigo_acceso = Column(String(20), unique=True, index=True, nullable=True)
 
     # Relationships
     usuario = relationship("Usuario", back_populates="estudiante")

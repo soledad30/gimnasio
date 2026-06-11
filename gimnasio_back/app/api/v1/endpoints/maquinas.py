@@ -1,13 +1,24 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_admin, get_current_usuario
+from app.core.uploads import save_image_upload
 from app.models.maquina import Maquina
 from app.schemas.schemas import MaquinaCreate, MaquinaUpdate, MaquinaResponse
 
 router = APIRouter()
+
+
+@router.post("/upload-foto")
+async def subir_foto_maquina(
+    file: UploadFile = File(...),
+    _=Depends(get_current_admin),
+):
+    fotourl = await save_image_upload(file, "maquinas")
+    return {"fotourl": fotourl}
 
 
 @router.post("/", response_model=MaquinaResponse, status_code=201)

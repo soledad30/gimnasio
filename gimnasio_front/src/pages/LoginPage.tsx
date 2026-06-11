@@ -1,8 +1,8 @@
 import { FormEvent, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Dumbbell, Loader2 } from 'lucide-react'
 import { getErrorMessage } from '@/api/client'
-import { useAuth } from '@/context/AuthContext'
+import { homePathForRol, useAuth } from '@/context/AuthContext'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export function LoginPage() {
-  const { login, user, loading, isAdmin } = useAuth()
+  const { login, user, loading, homePath } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@gympro.com')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -24,15 +24,15 @@ export function LoginPage() {
       </div>
     )
   }
-  if (user) return <Navigate to={isAdmin ? '/admin' : '/app'} replace />
+  if (user) return <Navigate to={homePath} replace />
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setSubmitting(true)
     try {
-      const u = await login(email, password)
-      navigate(u.es_admin ? '/admin' : '/app')
+      const perfil = await login(email, password)
+      navigate(homePathForRol(perfil.rol))
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -99,6 +99,12 @@ export function LoginPage() {
                 {submitting ? 'Entrando…' : 'Iniciar sesión'}
               </Button>
             </form>
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              ¿No tienes cuenta?{' '}
+              <Link to="/register" className="font-medium text-primary hover:underline">
+                Regístrate
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

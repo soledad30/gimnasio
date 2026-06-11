@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 
-export function Layout({ variant }: { variant: 'admin' | 'student' }) {
+export function Layout({ variant }: { variant: 'admin' | 'student' | 'instructor' }) {
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar variant={variant} />

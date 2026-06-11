@@ -2,20 +2,38 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db, get_current_admin, get_current_usuario
+from sqlalchemy import select
+
+from app.core.dependencies import get_db, get_current_admin, get_current_estudiante, get_current_staff, get_current_usuario
+from app.core.roles import is_staff
+from app.models.instructor import Instructor
 from app.schemas.estudiante import EstudianteCreate, EstudianteUpdate, EstudianteResponse, AsignarNFC
 from app.services.estudiante_service import EstudianteService
 
 router = APIRouter()
 
 
+@router.get("/mi-perfil", response_model=EstudianteResponse)
+async def mi_perfil(estudiante=Depends(get_current_estudiante)):
+    return estudiante
+
+
 @router.post("/", response_model=EstudianteResponse, status_code=201)
-async def crear_estudiante(data: EstudianteCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+async def crear_estudiante(data: EstudianteCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_staff)):
     return await EstudianteService(db).create_estudiante(data)
 
 
 @router.get("/", response_model=List[EstudianteResponse])
-async def listar_estudiantes(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+async def listar_estudiantes(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current=Depends(get_current_usuario),
+):
+    if not is_staff(current):
+        inst = await db.execute(select(Instructor).where(Instructor.usuario_id == current.id))
+        if not inst.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="No autorizado")
     return await EstudianteService(db).get_all(skip=skip, limit=limit)
 
 
@@ -28,7 +46,7 @@ async def obtener_estudiante(estudiante_id: int, db: AsyncSession = Depends(get_
 
 
 @router.patch("/{estudiante_id}", response_model=EstudianteResponse)
-async def actualizar_estudiante(estudiante_id: int, data: EstudianteUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+async def actualizar_estudiante(estudiante_id: int, data: EstudianteUpdate, db: AsyncSession = Depends(get_db), _=Depends(get_current_staff)):
     return await EstudianteService(db).update_estudiante(estudiante_id, data)
 
 
@@ -39,6 +57,6 @@ async def eliminar_estudiante(estudiante_id: int, db: AsyncSession = Depends(get
 
 
 @router.post("/{estudiante_id}/nfc", response_model=EstudianteResponse)
-async def asignar_nfc(estudiante_id: int, data: AsignarNFC, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+async def asignar_nfc(estudiante_id: int, data: AsignarNFC, db: AsyncSession = Depends(get_db), _=Depends(get_current_staff)):
     """Asigna o actualiza el UID NFC de un estudiante."""
     return await EstudianteService(db).asignar_nfc(estudiante_id, data)

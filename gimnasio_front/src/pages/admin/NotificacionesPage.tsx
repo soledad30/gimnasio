@@ -56,6 +56,15 @@ export function NotificacionesPage() {
     onError: (e) => toast.error(getErrorMessage(e)),
   })
 
+  const alertasMut = useMutation({
+    mutationFn: () => notificacionesApi.procesarAlertas().then((r) => r.data),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['notificaciones-admin'] })
+      toast.success(`${res.notificaciones_creadas} alerta(s) generada(s)`)
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
   const deleteMut = useMutation({
     mutationFn: (id: number) => notificacionesApi.delete(id),
     onSuccess: () => {
@@ -88,6 +97,19 @@ export function NotificacionesPage() {
         onCreate={() => setOpen(true)}
         createLabel="Nueva notificación"
       />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          onClick={() => alertasMut.mutate()}
+          disabled={alertasMut.isPending}
+        >
+          {alertasMut.isPending ? 'Procesando…' : 'Generar alertas de vencimiento'}
+        </Button>
+        <p className="text-sm text-muted-foreground self-center">
+          Avisa automáticamente a estudiantes con membresía por vencer (7 días) o vencida
+        </p>
+      </div>
 
       <Card>
         <CardHeader>

@@ -6,8 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, get_current_admin, get_current_usuario
 from app.models.notificacion import Notificacion
 from app.schemas.schemas import NotificacionCreate, NotificacionResponse
+from app.services.notificacion_service import NotificacionService
 
 router = APIRouter()
+
+
+@router.post("/procesar-alertas")
+async def procesar_alertas_vencimiento(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Genera notificaciones automáticas de membresías por vencer o vencidas."""
+    return await NotificacionService(db).procesar_alertas_vencimiento()
 
 
 @router.get("/", response_model=List[NotificacionResponse])

@@ -8,12 +8,16 @@ from app.models.membresia import Membresia
 from app.models.notificacion import Notificacion
 from app.models.reporte import Reporte
 from app.models.rutina import Rutina
+from app.models.ejercicio import Ejercicio
+from app.models.rutina_ejercicio import RutinaEjercicio
 from app.models.actividad import Actividad
 from app.models.maquina import Maquina
 from app.models.reserva import Reserva
+from app.models.pago import Pago
 
 __all__ = [
     "Usuario", "Administrador", "Instructor", "Estudiante",
     "Acceso", "Asistencia", "Membresia", "Notificacion",
-    "Reporte", "Rutina", "Actividad", "Maquina", "Reserva",
+    "Reporte", "Rutina", "Ejercicio", "RutinaEjercicio",
+    "Actividad", "Maquina", "Reserva", "Pago",
 ]

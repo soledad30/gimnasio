@@ -37,6 +37,7 @@ async def main() -> None:
             telefono="0000000000",
             hashed_password=get_password_hash(ADMIN_PASSWORD),
             es_admin=True,
+            rol="admin",
             activo=True,
         )
         db.add(user)

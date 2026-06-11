@@ -44,6 +44,7 @@ class EstudianteResponse(BaseModel):
     fechainicio_membresia: Optional[date]
     fechafin_membresia: Optional[date]
     nfc_uid: Optional[str]
+    codigo_acceso: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -52,5 +53,3 @@ class EstudianteResponse(BaseModel):
 
 class AsignarNFC(BaseModel):
     nfc_uid: str = Field(..., min_length=4, max_length=64)
-
-from pydantic import Field

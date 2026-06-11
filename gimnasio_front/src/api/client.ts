@@ -25,6 +25,17 @@ api.interceptors.response.use(
   }
 )
 
+export function getMediaUrl(path?: string | null): string | undefined {
+  if (!path) return undefined
+  if (path.startsWith('http')) return path
+  const apiUrl = import.meta.env.VITE_API_URL
+  if (apiUrl?.startsWith('http')) {
+    const origin = apiUrl.replace(/\/api\/v1\/?$/, '')
+    return `${origin}${path.startsWith('/') ? path : `/${path}`}`
+  }
+  return path.startsWith('/') ? path : `/${path}`
+}
+
 export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const detail = err.response?.data?.detail

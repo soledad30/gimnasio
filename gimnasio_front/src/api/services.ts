@@ -1,19 +1,38 @@
 import { api } from './client'
 import type {
   Acceso,
+  AccesoMonitorStats,
+  AlertaSeguridad,
+  CodigoAcceso,
   Actividad,
   DashboardKpis,
+  Ejercicio,
   Estudiante,
   Instructor,
+  InstructorPanel,
   Maquina,
   Membresia,
+  Pago,
   NfcScanResult,
   Notificacion,
+  PerfilResponse,
+  ReporteAccesos,
   Reserva,
   Rutina,
   TokenResponse,
+  ResetPasswordResult,
   Usuario,
+  UsuarioAdmin,
 } from '../types'
+
+export interface RegisterData {
+  nombre: string
+  email: string
+  password: string
+  telefono?: string
+  registro_univercotario?: string
+  carrera?: string
+}
 
 export const authApi = {
   login: (email: string, password: string) => {
@@ -22,17 +41,28 @@ export const authApi = {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
   },
+  register: (data: RegisterData) => api.post<TokenResponse>('/auth/register', data),
   me: () => api.get<Usuario>('/auth/me'),
+  perfil: () => api.get<PerfilResponse>('/auth/perfil'),
 }
 
 export const reportesApi = {
   dashboard: () => api.get<DashboardKpis>('/reportes/dashboard'),
   accesos: (fecha_inicio: string, fecha_fin: string) =>
-    api.get('/reportes/accesos', { params: { fecha_inicio, fecha_fin } }),
+    api.get<ReporteAccesos>('/reportes/accesos', { params: { fecha_inicio, fecha_fin } }),
+  exportCsv: (
+    tipo: 'accesos' | 'pagos' | 'membresias' | 'estudiantes',
+    params?: { fecha_inicio?: string; fecha_fin?: string }
+  ) =>
+    api.get(`/reportes/export/${tipo}`, {
+      params,
+      responseType: 'blob',
+    }),
 }
 
 export const estudiantesApi = {
   list: () => api.get<Estudiante[]>('/estudiantes/'),
+  miPerfil: () => api.get<Estudiante>('/estudiantes/mi-perfil'),
   get: (id: number) => api.get<Estudiante>(`/estudiantes/${id}`),
   create: (data: Record<string, unknown>) => api.post<Estudiante>('/estudiantes/', data),
   update: (id: number, data: Record<string, unknown>) =>
@@ -43,16 +73,33 @@ export const estudiantesApi = {
 }
 
 export const instructoresApi = {
+  catalogoEspecialidades: () => api.get<string[]>('/instructores/especialidades/catalogo'),
   list: () => api.get<Instructor[]>('/instructores/'),
   get: (id: number) => api.get<Instructor>(`/instructores/${id}`),
+  miPerfil: () => api.get<Instructor>('/instructores/mi-perfil'),
+  miPanel: () => api.get<InstructorPanel>('/instructores/mi-panel'),
   create: (data: Record<string, unknown>) => api.post<Instructor>('/instructores/', data),
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Instructor>(`/instructores/${id}`, data),
   delete: (id: number) => api.delete(`/instructores/${id}`),
+  uploadFoto: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post<{ fotourl: string }>('/instructores/upload-foto', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+}
+
+export const pagosApi = {
+  list: () => api.get<Pago[]>('/pagos/'),
+  create: (data: Record<string, unknown>) => api.post<Pago>('/pagos/', data),
 }
 
 export const actividadesApi = {
-  list: () => api.get<Actividad[]>('/actividades/'),
+  list: (fecha?: string) =>
+    api.get<Actividad[]>('/actividades/', { params: fecha ? { fecha } : {} }),
+  mis: () => api.get<Actividad[]>('/actividades/mis-actividades'),
   get: (id: number) => api.get<Actividad>(`/actividades/${id}`),
   create: (data: Record<string, unknown>) => api.post<Actividad>('/actividades/', data),
   update: (id: number, data: Record<string, unknown>) =>
@@ -67,15 +114,30 @@ export const maquinasApi = {
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Maquina>(`/maquinas/${id}`, data),
   delete: (id: number) => api.delete(`/maquinas/${id}`),
+  uploadFoto: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post<{ fotourl: string }>('/maquinas/upload-foto', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
 
 export const accesoApi = {
   historial: () => api.get<Acceso[]>('/acceso/historial'),
   nfcScan: (nfc_uid: string) => api.post<NfcScanResult>('/acceso/nfc-scan', { nfc_uid }),
+  manual: (codigo: string) => api.post<NfcScanResult>('/acceso/manual', { codigo }),
+  qrScan: (codigo: string) => api.post<NfcScanResult>('/acceso/qr-scan', { codigo }),
+  miQr: () => api.get<CodigoAcceso>('/acceso/mi-qr'),
+  checkIn: () => api.post<NfcScanResult>('/acceso/check-in'),
+  monitor: () => api.get<AccesoMonitorStats>('/acceso/monitor'),
+  tiempoReal: (limit = 15) => api.get<Acceso[]>('/acceso/tiempo-real', { params: { limit } }),
+  alertas: (limit = 10) => api.get<AlertaSeguridad[]>('/acceso/alertas', { params: { limit } }),
 }
 
 export const notificacionesApi = {
   list: () => api.get<Notificacion[]>('/notificaciones/'),
+  procesarAlertas: () => api.post<{ notificaciones_creadas: number; fecha: string }>('/notificaciones/procesar-alertas'),
   create: (data: Record<string, unknown>) => api.post<Notificacion>('/notificaciones/', data),
   mis: () => api.get<Notificacion[]>('/notificaciones/mis-notificaciones'),
   marcarLeida: (id: number) => api.patch<Notificacion>(`/notificaciones/${id}/leer`),
@@ -85,6 +147,7 @@ export const notificacionesApi = {
 export const reservasApi = {
   list: () => api.get<Reserva[]>('/reservas/'),
   mis: () => api.get<Reserva[]>('/reservas/mis-reservas'),
+  misClases: () => api.get<Reserva[]>('/reservas/mis-clases'),
   create: (data: { actividad_id: number; fecha: string }) =>
     api.post<Reserva>('/reservas/', data),
   cancelar: (id: number) => api.patch<Reserva>(`/reservas/${id}/cancelar`),
@@ -92,6 +155,8 @@ export const reservasApi = {
 
 export const rutinasApi = {
   list: () => api.get<Rutina[]>('/rutinas/'),
+  mis: () => api.get<Rutina[]>('/rutinas/mis-rutinas'),
+  misAsignadas: () => api.get<Rutina[]>('/rutinas/mis-asignadas'),
   get: (id: number) => api.get<Rutina>(`/rutinas/${id}`),
   create: (data: Record<string, unknown>) => api.post<Rutina>('/rutinas/', data),
   update: (id: number, data: Record<string, unknown>) =>
@@ -99,7 +164,38 @@ export const rutinasApi = {
   delete: (id: number) => api.delete(`/rutinas/${id}`),
 }
 
+export const ejerciciosApi = {
+  list: (objetivo?: string) =>
+    api.get<Ejercicio[]>('/ejercicios/', { params: objetivo ? { objetivo } : {} }),
+  get: (id: number) => api.get<Ejercicio>(`/ejercicios/${id}`),
+  create: (data: Record<string, unknown>) => api.post<Ejercicio>('/ejercicios/', data),
+  update: (id: number, data: Record<string, unknown>) =>
+    api.patch<Ejercicio>(`/ejercicios/${id}`, data),
+  delete: (id: number) => api.delete(`/ejercicios/${id}`),
+  uploadFoto: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post<{ fotourl: string }>('/ejercicios/upload-foto', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+}
+
+export const usuariosApi = {
+  list: (params?: { rol?: string; activo?: boolean }) =>
+    api.get<UsuarioAdmin[]>('/usuarios/', { params }),
+  get: (id: number) => api.get<UsuarioAdmin>(`/usuarios/${id}`),
+  create: (data: Record<string, unknown>) => api.post<UsuarioAdmin>('/usuarios/', data),
+  update: (id: number, data: Record<string, unknown>) =>
+    api.patch<UsuarioAdmin>(`/usuarios/${id}`, data),
+  delete: (id: number) => api.delete(`/usuarios/${id}`),
+  resetPassword: (id: number, data?: { password_nueva?: string; generar_temporal?: boolean }) =>
+    api.post<ResetPasswordResult>(`/usuarios/${id}/reset-password`, data ?? { generar_temporal: true }),
+}
+
 export const membresiasApi = {
+  list: () => api.get<Membresia[]>('/membresias/'),
+  miMembresia: () => api.get<Membresia>('/membresias/mi-membresia'),
   create: (data: Record<string, unknown>) => api.post<Membresia>('/membresias/', data),
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Membresia>(`/membresias/${id}`, data),

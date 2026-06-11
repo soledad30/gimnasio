@@ -1,20 +1,20 @@
 from datetime import date
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db, get_current_admin
+from app.core.dependencies import get_current_admin, get_current_staff, get_db
 from app.models.reporte import Reporte
 from app.schemas.schemas import ReporteCreate, ReporteResponse
 from app.services.reporte_service import ReporteService
+from sqlalchemy import select
 
 router = APIRouter()
 
 
 @router.get("/dashboard")
-async def dashboard(db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
-    """KPIs en tiempo real: estudiantes activos, accesos hoy, membresías por vencer."""
+async def dashboard(db: AsyncSession = Depends(get_db), _=Depends(get_current_staff)):
     return await ReporteService(db).dashboard()
 
 
@@ -26,6 +26,36 @@ async def reporte_accesos(
     _=Depends(get_current_admin),
 ):
     return await ReporteService(db).reporte_accesos(fecha_inicio, fecha_fin)
+
+
+@router.get("/export/accesos")
+async def export_accesos(
+    fecha_inicio: date,
+    fecha_fin: date,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    return await ReporteService(db).export_accesos_csv(fecha_inicio, fecha_fin)
+
+
+@router.get("/export/pagos")
+async def export_pagos(
+    fecha_inicio: date,
+    fecha_fin: date,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    return await ReporteService(db).export_pagos_csv(fecha_inicio, fecha_fin)
+
+
+@router.get("/export/membresias")
+async def export_membresias(db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+    return await ReporteService(db).export_membresias_csv()
+
+
+@router.get("/export/estudiantes")
+async def export_estudiantes(db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+    return await ReporteService(db).export_estudiantes_csv()
 
 
 @router.post("/", response_model=ReporteResponse, status_code=201)

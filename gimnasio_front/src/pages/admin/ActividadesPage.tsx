@@ -32,6 +32,17 @@ import {
 
 type ModalMode = 'create' | 'edit' | 'view' | null
 
+const DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+const selectClassName =
+  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+
+const horarioLabel = (a: Actividad) => {
+  const parts = []
+  if (a.dia_semana) parts.push(a.dia_semana.charAt(0).toUpperCase() + a.dia_semana.slice(1))
+  if (a.hora_inicio && a.hora_fin) parts.push(`${a.hora_inicio} - ${a.hora_fin}`)
+  return parts.join(' · ') || '—'
+}
+
 export function ActividadesPage() {
   const qc = useQueryClient()
   const [mode, setMode] = useState<ModalMode>(null)
@@ -44,7 +55,7 @@ export function ActividadesPage() {
   })
 
   const createMut = useMutation({
-    mutationFn: (body: Record<string, string | number>) => actividadesApi.create(body),
+    mutationFn: (body: Record<string, unknown>) => actividadesApi.create(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['actividades'] })
       setMode(null)
@@ -78,8 +89,12 @@ export function ActividadesPage() {
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const body = {
+    const body: Record<string, unknown> = {
       nombre: fd.get('nombre') as string,
+      descripcion: fd.get('descripcion') || null,
+      dia_semana: fd.get('dia_semana') || null,
+      hora_inicio: fd.get('hora_inicio') || null,
+      hora_fin: fd.get('hora_fin') || null,
       capacidad: Number(fd.get('capacidad')),
     }
     if (mode === 'edit' && selected) {
@@ -111,6 +126,7 @@ export function ActividadesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Horario</TableHead>
                   <TableHead>Capacidad</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
@@ -119,6 +135,7 @@ export function ActividadesPage() {
                 {data.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">{a.nombre}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{horarioLabel(a)}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{a.capacidad} cupos</Badge>
                     </TableCell>
@@ -154,7 +171,38 @@ export function ActividadesPage() {
               <Input id="nombre" name="nombre" defaultValue={selected?.nombre} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="capacidad">Capacidad</Label>
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Input id="descripcion" name="descripcion" defaultValue={selected?.descripcion ?? ''} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dia_semana">Día de la semana</Label>
+              <select
+                id="dia_semana"
+                name="dia_semana"
+                aria-label="Día de la semana"
+                defaultValue={selected?.dia_semana ?? ''}
+                className={selectClassName}
+              >
+                <option value="">Sin especificar</option>
+                {DIAS.map((d) => (
+                  <option key={d} value={d}>
+                    {d.charAt(0).toUpperCase() + d.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="hora_inicio">Hora inicio</Label>
+                <Input id="hora_inicio" name="hora_inicio" type="time" defaultValue={selected?.hora_inicio ?? ''} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hora_fin">Hora fin</Label>
+                <Input id="hora_fin" name="hora_fin" type="time" defaultValue={selected?.hora_fin ?? ''} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="capacidad">Capacidad (cupos)</Label>
               <Input
                 id="capacidad"
                 name="capacidad"
@@ -186,6 +234,8 @@ export function ActividadesPage() {
               items={[
                 { label: 'ID', value: selected.id },
                 { label: 'Nombre', value: selected.nombre },
+                { label: 'Descripción', value: selected.descripcion },
+                { label: 'Horario', value: horarioLabel(selected) },
                 { label: 'Capacidad', value: selected.capacidad },
                 { label: 'Instructor ID', value: selected.instructor_id ?? '—' },
                 { label: 'Creada', value: new Date(selected.created_at).toLocaleString() },

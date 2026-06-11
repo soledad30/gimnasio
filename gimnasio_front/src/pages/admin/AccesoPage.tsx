@@ -1,170 +1,326 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Nfc } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Nfc, QrCode, Radio, UserRound } from 'lucide-react'
+import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { accesoApi } from '@/api/services'
 import type { Acceso, NfcScanResult } from '@/types'
-import { DetailGrid } from '@/components/crud/DetailGrid'
-import { PageHeader } from '@/components/crud/PageHeader'
-import { RowActions } from '@/components/crud/RowActions'
+import { UserAvatar } from '@/components/acceso/UserAvatar'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+
+function MovimientoBadge({ tipo }: { tipo?: string | null }) {
+  if (tipo === 'entrada') return <Badge variant="success">Ingresó</Badge>
+  if (tipo === 'salida') return <Badge variant="destructive">Salió</Badge>
+  return <Badge variant="outline">Denegado</Badge>
+}
+
+function HistorialItem({ acceso }: { acceso: Acceso }) {
+  const nombre = acceso.estudiante_nombre ?? 'Usuario desconocido'
+  const subtitulo = acceso.estudiante_carrera
+    ? `Est. ${acceso.estudiante_carrera}`
+    : acceso.motivo_denegacion ?? 'Sin datos'
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/50 p-3">
+      <UserAvatar nombre={nombre} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{nombre}</p>
+        <p className="truncate text-xs text-muted-foreground">{subtitulo}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-mono">{acceso.hora_display ?? '—'}</p>
+        <MovimientoBadge tipo={acceso.tipo_movimiento} />
+      </div>
+    </div>
+  )
+}
 
 export function AccesoPage() {
+  const qc = useQueryClient()
+  const nfcInputRef = useRef<HTMLInputElement>(null)
   const [uid, setUid] = useState('')
+  const [codigoManual, setCodigoManual] = useState('')
+  const qrInputRef = useRef<HTMLInputElement>(null)
   const [last, setLast] = useState<NfcScanResult | null>(null)
-  const [error, setError] = useState('')
-  const [viewRow, setViewRow] = useState<Acceso | null>(null)
+  const [lectorActivo, setLectorActivo] = useState(true)
 
-  const { data: historial = [], isLoading } = useQuery({
+  useEffect(() => {
+    qrInputRef.current?.focus()
+  }, [])
+
+  const sinMembresia =
+    last?.motivo_denegacion?.toLowerCase().includes('membresía') ||
+    last?.motivo_denegacion?.toLowerCase().includes('membresia')
+
+  const { data: monitor, isLoading: loadingMonitor } = useQuery({
+    queryKey: ['acceso-monitor'],
+    queryFn: () => accesoApi.monitor().then((r) => r.data),
+    refetchInterval: 5000,
+  })
+
+  const { data: historial = [], isLoading: loadingHistorial } = useQuery({
     queryKey: ['acceso-historial'],
     queryFn: () => accesoApi.historial().then((r) => r.data),
+    refetchInterval: 5000,
   })
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['acceso-historial'] })
+    qc.invalidateQueries({ queryKey: ['acceso-monitor'] })
+    qc.invalidateQueries({ queryKey: ['acceso-tiempo-real'] })
+    qc.invalidateQueries({ queryKey: ['acceso-alertas'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+  }
 
   const scanMut = useMutation({
     mutationFn: (nfc_uid: string) => accesoApi.nfcScan(nfc_uid).then((r) => r.data),
     onSuccess: (data) => {
       setLast(data)
-      setError('')
+      invalidate()
+      if (data.acceso_concedido) {
+        toast.success(data.mensaje)
+      } else {
+        toast.error(data.mensaje)
+      }
+      setUid('')
     },
-    onError: (e) => setError(getErrorMessage(e)),
+    onError: (e) => toast.error(getErrorMessage(e)),
   })
 
-  return (
-    <>
-      <PageHeader title="Control de acceso NFC" description="Simular escaneo y revisar historial" />
+  const registrarCodigo = (codigo: string) =>
+    accesoApi.qrScan(codigo.trim()).then((r) => r.data)
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Nfc className="h-5 w-5 text-primary" />
-            Simular escaneo
-          </CardTitle>
-          <CardDescription>Registra un acceso como si pasara la tarjeta en la puerta</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="nfc-uid">UID de tarjeta NFC</Label>
+  const manualMut = useMutation({
+    mutationFn: registrarCodigo,
+    onSuccess: (data) => {
+      setLast(data)
+      invalidate()
+      if (data.acceso_concedido) toast.success(data.mensaje)
+      else toast.error(data.mensaje)
+      setCodigoManual('')
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
+  const handleNfcScan = () => {
+    if (!uid.trim()) return
+    scanMut.mutate(uid.trim())
+  }
+
+  const simularRegistro = () => {
+    const demo = ['A1:B2:C3:D4', 'E5:F6:G7:H8', '221001234']
+    const pick = demo[Math.floor(Math.random() * demo.length)]
+    setUid(pick)
+    scanMut.mutate(pick)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Control de ingreso NFC</h1>
+        <p className="text-muted-foreground">Registro automático con carnet universitario</p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Lector NFC */}
+        <Card className="lg:col-span-2 border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Nfc className="h-6 w-6 text-primary" />
+              Lector NFC
+            </CardTitle>
+            <CardDescription>Acerque su carnet al lector</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div
+              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors ${
+                lectorActivo ? 'border-primary/50 bg-primary/5' : 'border-muted bg-muted/20'
+              }`}
+            >
+              <div className="relative mb-4">
+                <Nfc className={`h-20 w-20 ${lectorActivo ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+                {lectorActivo && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex h-4 w-4 rounded-full bg-primary" />
+                  </span>
+                )}
+              </div>
+              <p className="text-lg font-medium">Acerque su carnet</p>
+              <p className="text-sm text-muted-foreground">
+                {lectorActivo ? 'Lector NFC activo' : 'Lector pausado'}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Input
-                id="nfc-uid"
+                ref={nfcInputRef}
                 value={uid}
                 onChange={(e) => setUid(e.target.value)}
-                placeholder="Ej: A1:B2:C3:D4"
+                placeholder="UID NFC o escaneo automático…"
+                className="font-mono"
+                disabled={!lectorActivo}
               />
-            </div>
-            <div className="flex items-end">
-              <Button disabled={!uid || scanMut.isPending} onClick={() => scanMut.mutate(uid)}>
-                Registrar acceso
+              <Button
+                onClick={handleNfcScan}
+                onKeyDown={(e) => e.key === 'Enter' && handleNfcScan()}
+                disabled={!uid || scanMut.isPending || !lectorActivo}
+              >
+                Registrar
               </Button>
             </div>
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {last && (
-            <Alert variant={last.acceso_concedido ? 'success' : 'destructive'}>
-              <AlertTitle>{last.mensaje}</AlertTitle>
-              <AlertDescription>
-                {last.nombre && <p>Estudiante: {last.nombre}</p>}
-                {last.motivo_denegacion && <p>Motivo: {last.motivo_denegacion}</p>}
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
 
-      <Card className="mt-6">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={simularRegistro} disabled={scanMut.isPending}>
+                <Radio className="mr-2 h-4 w-4" />
+                Simular registro
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLectorActivo((v) => !v)}
+              >
+                {lectorActivo ? 'Pausar lector' : 'Activar lector'}
+              </Button>
+            </div>
+
+            {last && (
+              <Alert variant={last.acceso_concedido ? 'success' : 'destructive'}>
+                <AlertTitle>{last.mensaje}</AlertTitle>
+                <AlertDescription>
+                  {last.nombre && <p>{last.nombre}{last.carrera ? ` — ${last.carrera}` : ''}</p>}
+                  {last.tipo_movimiento && (
+                    <p className="mt-1 capitalize">Movimiento: {last.tipo_movimiento}</p>
+                  )}
+                  {last.motivo_denegacion && <p>Motivo: {last.motivo_denegacion}</p>}
+                  {sinMembresia && last.nombre && (
+                    <p className="mt-2">
+                      El estudiante está registrado pero no tiene plan activo.{' '}
+                      <Link to="/admin/membresias" className="font-medium underline">
+                        Asignar membresía
+                      </Link>
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* QR / acceso manual */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <QrCode className="h-5 w-5" />
+              QR y acceso manual
+            </CardTitle>
+            <CardDescription>
+              Escanea el QR de la app del estudiante o ingresa su código
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="codigo">Código escaneado o manual</Label>
+              <Input
+                ref={qrInputRef}
+                id="codigo"
+                value={codigoManual}
+                onChange={(e) => setCodigoManual(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && codigoManual.trim()) manualMut.mutate(codigoManual)
+                }}
+                placeholder="Escanea el QR de la app del estudiante"
+                autoComplete="off"
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => codigoManual && manualMut.mutate(codigoManual)}
+              disabled={!codigoManual || manualMut.isPending}
+            >
+              Registrar acceso
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              1) El estudiante abre su app → Acceso y muestra el QR.
+              2) Escanea con lector USB (el código se escribe solo) o pégalo manualmente.
+              3) Pulsa Enter o «Registrar acceso». También acepta registro universitario o cédula.
+            </p>
+            {sinMembresia && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Sin membresía activa el ingreso se deniega aunque el código sea correcto.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Estadísticas */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {loadingMonitor ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+        ) : (
+          <>
+            <Card className="border-l-4 border-l-primary">
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold text-primary">{monitor?.en_gimnasio_ahora ?? 0}</p>
+                <p className="text-sm text-muted-foreground">En gimnasio ahora</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-cyan-500">
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold">{monitor?.ingresos_hoy ?? 0}</p>
+                <p className="text-sm text-muted-foreground">Ingresos hoy</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-amber-500">
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold">{monitor?.estudiantes_hoy ?? 0}</p>
+                <p className="text-sm text-muted-foreground">Estudiantes hoy</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-red-500">
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold">{monitor?.denegados_hoy ?? 0}</p>
+                <p className="text-sm text-muted-foreground">Accesos denegados</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {/* Historial reciente */}
+      <Card>
         <CardHeader>
-          <CardTitle>Historial de accesos</CardTitle>
-          <CardDescription>Últimos registros en el sistema</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <UserRound className="h-5 w-5" />
+            Historial reciente
+          </CardTitle>
+          <CardDescription>Últimos movimientos de entrada y salida</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-24 w-full" />
+          {loadingHistorial ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : historial.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Sin registros aún</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Estudiante</TableHead>
-                  <TableHead>Resultado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {historial.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{new Date(a.created_at).toLocaleString()}</TableCell>
-                    <TableCell>{a.estudiante_id ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge variant={a.acceso_concedido ? 'success' : 'destructive'}>
-                        {a.acceso_concedido ? 'Concedido' : 'Denegado'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActions onView={() => setViewRow(a)} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="space-y-2 max-h-[480px] overflow-y-auto">
+              {historial.slice(0, 20).map((a) => (
+                <HistorialItem key={a.id} acceso={a} />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={viewRow !== null} onOpenChange={() => setViewRow(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Detalle de acceso</DialogTitle>
-          </DialogHeader>
-          {viewRow && (
-            <DetailGrid
-              items={[
-                { label: 'ID', value: viewRow.id },
-                { label: 'Estudiante ID', value: viewRow.estudiante_id },
-                { label: 'Fecha', value: viewRow.fecha },
-                { label: 'Hora entrada', value: viewRow.hora_entrada },
-                { label: 'Hora salida', value: viewRow.hora_salida },
-                { label: 'Permanencia', value: viewRow.tiempo_permanencia },
-                {
-                  label: 'Resultado',
-                  value: viewRow.acceso_concedido ? 'Concedido' : 'Denegado',
-                },
-                { label: 'Motivo denegación', value: viewRow.motivo_denegacion },
-                { label: 'Registrado', value: new Date(viewRow.created_at).toLocaleString() },
-              ]}
-            />
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewRow(null)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   )
 }

@@ -16,3 +16,9 @@ class Rutina(Base):
     # Relationships
     instructor = relationship("Instructor", back_populates="rutinas")
     estudiante = relationship("Estudiante", back_populates="rutinas")
+    ejercicios_assoc = relationship(
+        "RutinaEjercicio",
+        back_populates="rutina",
+        cascade="all, delete-orphan",
+        order_by="RutinaEjercicio.orden",
+    )

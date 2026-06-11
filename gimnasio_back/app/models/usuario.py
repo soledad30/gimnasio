@@ -18,6 +18,7 @@ class Usuario(Base):
     # Control de acceso
     activo = Column(Boolean, default=True, nullable=False)
     es_admin = Column(Boolean, default=False, nullable=False)
+    rol = Column(String(20), default="estudiante", nullable=False)
 
     # Relationships
     administrador = relationship("Administrador", back_populates="usuario", uselist=False)

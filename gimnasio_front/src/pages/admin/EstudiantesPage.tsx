@@ -146,6 +146,7 @@ export function EstudiantesPage() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Teléfono</TableHead>
                   <TableHead>NFC</TableHead>
                   <TableHead>Membresía</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -154,7 +155,7 @@ export function EstudiantesPage() {
               <TableBody>
                 {data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No hay estudiantes. Crea el primero.
                     </TableCell>
                   </TableRow>
@@ -163,6 +164,7 @@ export function EstudiantesPage() {
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.nombre}</TableCell>
                       <TableCell>{e.email}</TableCell>
+                      <TableCell>{e.telefono || '—'}</TableCell>
                       <TableCell>
                         {e.nfc_uid ? (
                           <Badge variant="success">{e.nfc_uid}</Badge>
@@ -223,6 +225,14 @@ export function EstudiantesPage() {
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <Input id="password" name="password" type="password" minLength={8} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="telefono">Teléfono</Label>
+              <Input id="telefono" name="telefono" type="tel" placeholder="70000000" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="registro_univercotario">Registro universitario</Label>
+              <Input id="registro_univercotario" name="registro_univercotario" placeholder="Ej. 221001234" />
             </div>
             <CarreraSelect id="carrera" required />
           </form>
@@ -289,6 +299,7 @@ export function EstudiantesPage() {
                 { label: 'Email', value: viewRow.email },
                 { label: 'Teléfono', value: viewRow.telefono },
                 { label: 'Carrera', value: viewRow.carrera },
+                { label: 'Código acceso / QR', value: viewRow.codigo_acceso },
                 { label: 'NFC UID', value: viewRow.nfc_uid },
                 {
                   label: 'Membresía',

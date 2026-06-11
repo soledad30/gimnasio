@@ -8,7 +8,8 @@ class Instructor(Base):
 
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, unique=True)
     nombre = Column(String(150), nullable=False)
-    especialidad = Column(String(150), nullable=True)
+    especialidad = Column(String(500), nullable=True)
+    fotourl = Column(String(500), nullable=True)
 
     # Relationships
     usuario = relationship("Usuario", back_populates="instructor")
