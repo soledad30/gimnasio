@@ -18,7 +18,7 @@ export function MaquinaFoto({
       <img
         src={src}
         alt={nombre}
-        className={cn('rounded-lg object-cover', className)}
+        className={cn('max-w-full rounded-lg object-cover object-center', className)}
       />
     )
   }

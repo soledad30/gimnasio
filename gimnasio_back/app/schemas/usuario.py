@@ -54,3 +54,5 @@ class AdminResetPassword(BaseModel):
 class ResetPasswordResponse(BaseModel):
     mensaje: str
     password_temporal: Optional[str] = None
+    enviado_email: bool = False
+    enviado_sms: bool = False

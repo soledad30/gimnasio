@@ -1,761 +1,377 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-
-import { FormEvent, useEffect, useMemo, useState } from 'react'
-
-import { Dumbbell, Pencil, Target } from 'lucide-react'
-
+import { FormEvent, useEffect, useState } from 'react'
+import { Dumbbell, Pencil, Target, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
-
 import { getErrorMessage } from '@/api/client'
-
 import { estudiantesApi, ejerciciosApi, rutinasApi } from '@/api/services'
-
 import type { Rutina } from '@/types'
-
 import { PageHeader } from '@/components/crud/PageHeader'
-
+import { OBJETIVOS_RUTINA, objetivoLabel } from '@/constants/objetivos'
 import { Badge } from '@/components/ui/badge'
-
 import { Button } from '@/components/ui/button'
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
 import {
-
   Dialog,
-
   DialogContent,
-
   DialogFooter,
-
   DialogHeader,
-
   DialogTitle,
-
 } from '@/components/ui/dialog'
-
 import { Input } from '@/components/ui/input'
-
 import { Label } from '@/components/ui/label'
-
 import { Skeleton } from '@/components/ui/skeleton'
-
-
 
 type ModalMode = 'create' | 'edit' | null
 
-
-
 const selectClassName =
-
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
-
-
-const OBJETIVOS = [
-
-  { value: 'abdomen', label: 'Abdomen / core' },
-
-  { value: 'hipertrofia', label: 'Hipertrofia' },
-
-  { value: 'fuerza', label: 'Fuerza' },
-
-  { value: 'resistencia', label: 'Resistencia' },
-
-  { value: 'perdida_peso', label: 'Pérdida de peso' },
-
-  { value: 'flexibilidad', label: 'Flexibilidad' },
-
-  { value: 'general', label: 'General' },
-
-]
-
-
-
-const OBJETIVOS_LABEL: Record<string, string> = Object.fromEntries(
-
-  OBJETIVOS.map((o) => [o.value, o.label])
-
-)
-
-
-
 export function InstructorRutinasPage() {
-
   const qc = useQueryClient()
-
   const [mode, setMode] = useState<ModalMode>(null)
-
   const [selected, setSelected] = useState<Rutina | null>(null)
-
+  const [assignRow, setAssignRow] = useState<Rutina | null>(null)
   const [objetivoFiltro, setObjetivoFiltro] = useState('')
-
   const [ejercicioConfig, setEjercicioConfig] = useState<
-
     Record<number, { series: number; repeticiones: string }>
-
   >({})
 
-
-
-  const { data = [], isLoading } = useQuery({
-
+  const { data: plantillas = [], isLoading } = useQuery({
     queryKey: ['instructor-rutinas'],
-
     queryFn: () => rutinasApi.misAsignadas().then((r) => r.data),
-
   })
 
-
+  const { data: asignaciones = [] } = useQuery({
+    queryKey: ['instructor-rutinas-asignadas'],
+    queryFn: () => rutinasApi.asignaciones().then((r) => r.data),
+  })
 
   const { data: estudiantes = [] } = useQuery({
-
     queryKey: ['estudiantes'],
-
     queryFn: () => estudiantesApi.list().then((r) => r.data),
-
-    enabled: mode !== null,
-
+    enabled: assignRow !== null,
   })
-
-
-
-  const estudianteNombre = useMemo(
-
-    () => new Map(estudiantes.map((e) => [e.id, e.nombre])),
-
-    [estudiantes]
-
-  )
-
-
 
   const { data: ejercicios = [] } = useQuery({
-
     queryKey: ['ejercicios', objetivoFiltro],
-
     queryFn: () => ejerciciosApi.list(objetivoFiltro || undefined).then((r) => r.data),
-
     enabled: mode !== null,
-
   })
-
-
 
   useEffect(() => {
-
     if (mode === 'edit' && selected) {
-
       setObjetivoFiltro(selected.objetivo ?? '')
-
       const cfg: Record<number, { series: number; repeticiones: string }> = {}
-
       selected.ejercicios?.forEach((e) => {
-
         cfg[e.ejercicio_id] = {
-
           series: e.series ?? 3,
-
           repeticiones: e.repeticiones ?? '12',
-
         }
-
       })
-
       setEjercicioConfig(cfg)
-
     } else if (mode === 'create') {
-
       setObjetivoFiltro('')
-
       setEjercicioConfig({})
-
     }
-
   }, [mode, selected])
 
-
-
-  const openCreate = () => {
-
-    setSelected(null)
-
-    setMode('create')
-
-  }
-
-
-
-  const openEdit = (r: Rutina) => {
-
-    setSelected(r)
-
-    setMode('edit')
-
-  }
-
-
-
-  const toggleEjercicio = (id: number) => {
-
-    setEjercicioConfig((prev) => {
-
-      if (prev[id]) {
-
-        const next = { ...prev }
-
-        delete next[id]
-
-        return next
-
-      }
-
-      return { ...prev, [id]: { series: 3, repeticiones: '12' } }
-
-    })
-
-  }
-
-
-
-  const updateEjercicioConfig = (
-
-    id: number,
-
-    field: 'series' | 'repeticiones',
-
-    value: string | number
-
-  ) => {
-
-    setEjercicioConfig((prev) => ({
-
-      ...prev,
-
-      [id]: { ...prev[id], [field]: value },
-
-    }))
-
-  }
-
-
-
   const createMut = useMutation({
-
     mutationFn: (body: Record<string, unknown>) => rutinasApi.create(body),
-
     onSuccess: () => {
-
       qc.invalidateQueries({ queryKey: ['instructor-rutinas'] })
-
       qc.invalidateQueries({ queryKey: ['instructor-panel'] })
-
       setMode(null)
-
-      toast.success('Rutina creada')
-
+      toast.success('Plantilla de rutina creada')
     },
-
     onError: (e) => toast.error(getErrorMessage(e)),
-
   })
-
-
 
   const updateMut = useMutation({
-
     mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) =>
-
       rutinasApi.update(id, body),
-
     onSuccess: () => {
-
       qc.invalidateQueries({ queryKey: ['instructor-rutinas'] })
-
       setMode(null)
-
       setSelected(null)
-
       toast.success('Rutina actualizada')
-
     },
-
     onError: (e) => toast.error(getErrorMessage(e)),
-
   })
 
-
+  const assignMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { estudiante_id: number; notas_asignacion?: string } }) =>
+      rutinasApi.asignar(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['instructor-rutinas-asignadas'] })
+      setAssignRow(null)
+      toast.success('Rutina asignada al estudiante')
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
-
     e.preventDefault()
-
+    if (!objetivoFiltro) {
+      toast.error('Selecciona un objetivo')
+      return
+    }
     const fd = new FormData(e.currentTarget)
-
     const body: Record<string, unknown> = {
-
       nombre: fd.get('nombre') as string,
-
-      objetivo: objetivoFiltro || null,
-
+      objetivo: objetivoFiltro,
       ejercicios: Object.entries(ejercicioConfig).map(([id, cfg]) => ({
-
         ejercicio_id: Number(id),
-
         series: cfg.series,
-
         repeticiones: cfg.repeticiones,
-
       })),
-
     }
-
-    const est = fd.get('estudiante_id') as string
-
-    if (est) body.estudiante_id = Number(est)
-
-
-
     if (mode === 'edit' && selected) {
-
       updateMut.mutate({ id: selected.id, body })
-
     } else {
-
       createMut.mutate(body)
-
     }
-
   }
 
-
-
-  const nombreEstudiante = (id?: number | null) =>
-
-    id ? estudianteNombre.get(id) ?? `Estudiante #${id}` : 'Sin asignar'
-
-
+  const onAssign = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!assignRow) return
+    const fd = new FormData(e.currentTarget)
+    const estudianteId = Number(fd.get('estudiante_id'))
+    if (!estudianteId) {
+      toast.error('Selecciona un estudiante')
+      return
+    }
+    assignMut.mutate({
+      id: assignRow.id,
+      body: {
+        estudiante_id: estudianteId,
+        notas_asignacion: (fd.get('notas_asignacion') as string) || undefined,
+      },
+    })
+  }
 
   return (
-
     <>
-
       <PageHeader
-
-        title="Mis rutinas"
-
-        description="Crea y edita planes de entrenamiento para tus estudiantes"
-
-        onCreate={openCreate}
-
-        createLabel="Nueva rutina"
-
+        title="Rutinas"
+        description="Crea plantillas por objetivo y asígnalas a estudiantes según su evaluación"
+        onCreate={() => {
+          setSelected(null)
+          setMode('create')
+        }}
+        createLabel="Nueva plantilla"
       />
 
-
-
       {isLoading ? (
-
-        <div className="mt-6 space-y-4">
-
-          <Skeleton className="h-48 w-full" />
-
-          <Skeleton className="h-48 w-full" />
-
-        </div>
-
-      ) : data.length === 0 ? (
-
+        <Skeleton className="mt-6 h-32 w-full" />
+      ) : plantillas.length === 0 ? (
         <Card className="mt-6">
-
           <CardContent className="flex flex-col items-center py-12 text-center">
-
-            <Dumbbell className="mb-3 h-12 w-12 text-muted-foreground" />
-
-            <p className="font-medium">No tienes rutinas aún</p>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-
-              Crea tu primera rutina y asígnala a un estudiante.
-
+            <Dumbbell className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="font-medium">No tienes plantillas aún</p>
+            <p className="text-sm text-muted-foreground">
+              Crea rutinas por objetivo (definición, ganancia muscular, etc.)
             </p>
-
-            <Button className="mt-4" onClick={openCreate}>
-
-              Nueva rutina
-
+            <Button className="mt-4" onClick={() => setMode('create')}>
+              Nueva plantilla
             </Button>
-
           </CardContent>
-
         </Card>
-
       ) : (
-
-        <div className="mt-6 space-y-6">
-
-          {data.map((r) => (
-
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {plantillas.map((r) => (
             <Card key={r.id}>
-
-              <CardHeader>
-
-                <div className="flex items-start justify-between gap-3">
-
-                  <div>
-
-                    <CardTitle>{r.nombre}</CardTitle>
-
-                    {r.objetivo && (
-
-                      <CardDescription className="mt-1 flex items-center gap-1">
-
-                        <Target className="h-4 w-4" />
-
-                        {OBJETIVOS_LABEL[r.objetivo] ?? r.objetivo}
-
-                      </CardDescription>
-
-                    )}
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-
-                      Estudiante: {nombreEstudiante(r.estudiante_id)}
-
-                    </p>
-
-                  </div>
-
-                  <div className="flex items-center gap-2">
-
-                    <Badge variant="secondary">{r.ejercicios?.length ?? 0} ejercicios</Badge>
-
-                    <Button variant="outline" size="sm" onClick={() => openEdit(r)}>
-
-                      <Pencil className="mr-1 h-4 w-4" />
-
-                      Editar
-
-                    </Button>
-
-                  </div>
-
-                </div>
-
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{r.nombre}</CardTitle>
+                <CardDescription className="flex items-center gap-1">
+                  <Target className="h-3.5 w-3.5" />
+                  {objetivoLabel(r.objetivo)}
+                </CardDescription>
               </CardHeader>
-
-              <CardContent>
-
-                {r.ejercicios && r.ejercicios.length > 0 ? (
-
-                  <ol className="space-y-2">
-
-                    {r.ejercicios.map((ej, idx) => (
-
-                      <li
-
-                        key={ej.ejercicio_id}
-
-                        className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm"
-
-                      >
-
-                        <span className="font-bold text-primary">{idx + 1}.</span>
-
-                        <span className="flex-1">{ej.nombre}</span>
-
-                        {ej.series && ej.repeticiones && (
-
-                          <span className="text-muted-foreground">
-
-                            {ej.series}×{ej.repeticiones}
-
-                          </span>
-
-                        )}
-
-                      </li>
-
-                    ))}
-
-                  </ol>
-
-                ) : (
-
-                  <p className="text-sm text-muted-foreground">Sin ejercicios definidos</p>
-
-                )}
-
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {r.ejercicios?.length ?? 0} ejercicio(s)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setAssignRow(r)}>
+                    <UserPlus className="mr-1 h-4 w-4" />
+                    Asignar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelected(r)
+                      setMode('edit')
+                    }}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Editar
+                  </Button>
+                </div>
               </CardContent>
-
             </Card>
-
           ))}
-
         </div>
-
       )}
 
-
-
-      <Dialog open={mode !== null} onOpenChange={() => setMode(null)}>
-
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-
-          <DialogHeader>
-
-            <DialogTitle>{mode === 'edit' ? 'Editar rutina' : 'Nueva rutina'}</DialogTitle>
-
-          </DialogHeader>
-
-          <form id="inst-rut-form" onSubmit={onSubmit} className="space-y-4">
-
-            <div className="space-y-2">
-
-              <Label htmlFor="nombre">Nombre</Label>
-
-              <Input id="nombre" name="nombre" defaultValue={selected?.nombre} required />
-
-            </div>
-
-            <div className="space-y-2">
-
-              <Label htmlFor="objetivo">Objetivo</Label>
-
-              <select
-
-                id="objetivo"
-
-                name="objetivo"
-
-                aria-label="Objetivo de la rutina"
-
-                value={objetivoFiltro}
-
-                onChange={(e) => setObjetivoFiltro(e.target.value)}
-
-                className={selectClassName}
-
+      {asignaciones.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Asignadas a estudiantes</CardTitle>
+            <CardDescription>{asignaciones.length} asignación(es)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {asignaciones.map((r) => (
+              <div
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
               >
-
-                <option value="">Seleccionar objetivo…</option>
-
-                {OBJETIVOS.map((o) => (
-
-                  <option key={o.value} value={o.value}>
-
-                    {o.label}
-
-                  </option>
-
-                ))}
-
-              </select>
-
-            </div>
-
-            <div className="space-y-2">
-
-              <Label>Ejercicios</Label>
-
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
-
-                {ejercicios.length === 0 ? (
-
-                  <p className="text-sm text-muted-foreground">
-
-                    {objetivoFiltro
-
-                      ? 'No hay ejercicios para este objetivo.'
-
-                      : 'Elige un objetivo para ver ejercicios sugeridos.'}
-
-                  </p>
-
-                ) : (
-
-                  ejercicios.map((ej) => {
-
-                    const checked = !!ejercicioConfig[ej.id]
-
-                    return (
-
-                      <div
-
-                        key={ej.id}
-
-                        className={`rounded-md border p-2 ${checked ? 'border-primary/40 bg-primary/5' : 'border-transparent'}`}
-
-                      >
-
-                        <label className="flex cursor-pointer items-start gap-3">
-
-                          <input
-
-                            type="checkbox"
-
-                            checked={checked}
-
-                            onChange={() => toggleEjercicio(ej.id)}
-
-                            className="mt-1 h-4 w-4 rounded border-input"
-
-                            aria-label={`Seleccionar ${ej.nombre}`}
-
-                          />
-
-                          <span className="flex-1">
-
-                            <span className="font-medium">{ej.nombre}</span>
-
-                            <span className="mt-1 flex flex-wrap gap-1">
-
-                              <Badge variant="outline" className="text-xs">
-
-                                {ej.con_maquina ? ej.maquina_nombre || 'Con máquina' : 'Sin máquina'}
-
-                              </Badge>
-
-                            </span>
-
-                          </span>
-
-                        </label>
-
-                        {checked && (
-
-                          <div className="mt-2 ml-7 flex gap-2">
-
-                            <div className="space-y-1">
-
-                              <Label className="text-xs">Series</Label>
-
-                              <Input
-
-                                type="number"
-
-                                min={1}
-
-                                value={ejercicioConfig[ej.id].series}
-
-                                onChange={(e) =>
-
-                                  updateEjercicioConfig(ej.id, 'series', Number(e.target.value))
-
-                                }
-
-                                className="h-8 w-20"
-
-                              />
-
-                            </div>
-
-                            <div className="flex-1 space-y-1">
-
-                              <Label className="text-xs">Repeticiones</Label>
-
-                              <Input
-
-                                value={ejercicioConfig[ej.id].repeticiones}
-
-                                onChange={(e) =>
-
-                                  updateEjercicioConfig(ej.id, 'repeticiones', e.target.value)
-
-                                }
-
-                                placeholder="12 o 30 seg"
-
-                                className="h-8"
-
-                              />
-
-                            </div>
-
-                          </div>
-
-                        )}
-
-                      </div>
-
-                    )
-
-                  })
-
+                <div>
+                  <span className="font-medium">{r.estudiante_nombre ?? 'Estudiante'}</span>
+                  <span className="text-muted-foreground"> · {r.nombre} · {objetivoLabel(r.objetivo)}</span>
+                </div>
+                {r.notas_asignacion && (
+                  <Badge variant="outline" className="text-xs">
+                    {r.notas_asignacion}
+                  </Badge>
                 )}
-
               </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
-            </div>
-
+      <Dialog open={mode === 'create' || mode === 'edit'} onOpenChange={() => setMode(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{mode === 'edit' ? 'Editar plantilla' : 'Nueva plantilla'}</DialogTitle>
+          </DialogHeader>
+          <form id="inst-rut-form" onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-
-              <Label htmlFor="estudiante_id">Estudiante</Label>
-
-              <select
-
-                id="estudiante_id"
-
-                name="estudiante_id"
-
-                aria-label="Estudiante"
-
-                defaultValue={selected?.estudiante_id ?? ''}
-
-                className={selectClassName}
-
-              >
-
-                <option value="">Sin asignar</option>
-
-                {estudiantes.map((e) => (
-
-                  <option key={e.id} value={e.id}>
-
-                    {e.nombre}
-
-                  </option>
-
-                ))}
-
-              </select>
-
+              <Label htmlFor="nombre">Nombre</Label>
+              <Input id="nombre" name="nombre" defaultValue={selected?.nombre} required />
             </div>
-
+            <div className="space-y-2">
+              <Label htmlFor="objetivo">Objetivo</Label>
+              <select
+                id="objetivo"
+                name="objetivo"
+                value={objetivoFiltro}
+                onChange={(e) => setObjetivoFiltro(e.target.value)}
+                className={selectClassName}
+                required
+                aria-label="Objetivo"
+              >
+                <option value="">Seleccionar objetivo…</option>
+                {OBJETIVOS_RUTINA.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Ejercicios</Label>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+                {ejercicios.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {objetivoFiltro
+                      ? 'No hay ejercicios para este objetivo.'
+                      : 'Elige un objetivo para ver ejercicios sugeridos.'}
+                  </p>
+                ) : (
+                  ejercicios.map((ej) => {
+                    const checked = !!ejercicioConfig[ej.id]
+                    return (
+                      <div
+                        key={ej.id}
+                        className={`rounded-md border p-2 ${checked ? 'border-primary/40 bg-primary/5' : 'border-transparent'}`}
+                      >
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setEjercicioConfig((prev) =>
+                                prev[ej.id]
+                                  ? Object.fromEntries(
+                                      Object.entries(prev).filter(([k]) => Number(k) !== ej.id)
+                                    )
+                                  : { ...prev, [ej.id]: { series: 3, repeticiones: '12' } }
+                              )
+                            }
+                            className="mt-1 h-4 w-4 rounded border-input"
+                          />
+                          <span className="font-medium">{ej.nombre}</span>
+                        </label>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
           </form>
-
           <DialogFooter>
-
             <Button variant="outline" onClick={() => setMode(null)}>
-
               Cancelar
-
             </Button>
-
-            <Button
-
-              type="submit"
-
-              form="inst-rut-form"
-
-              disabled={createMut.isPending || updateMut.isPending}
-
-            >
-
+            <Button type="submit" form="inst-rut-form" disabled={createMut.isPending || updateMut.isPending}>
               Guardar
-
             </Button>
-
           </DialogFooter>
-
         </DialogContent>
-
       </Dialog>
 
+      <Dialog open={assignRow !== null} onOpenChange={() => setAssignRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Asignar rutina</DialogTitle>
+          </DialogHeader>
+          {assignRow && (
+            <form id="inst-assign-form" onSubmit={onAssign} className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {assignRow.nombre} · {objetivoLabel(assignRow.objetivo)}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="estudiante_id">Estudiante</Label>
+                <select
+                  id="estudiante_id"
+                  name="estudiante_id"
+                  required
+                  className={selectClassName}
+                  aria-label="Estudiante"
+                >
+                  <option value="">Seleccionar…</option>
+                  {estudiantes.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notas_asignacion">Notas de evaluación</Label>
+                <textarea
+                  id="notas_asignacion"
+                  name="notas_asignacion"
+                  rows={3}
+                  placeholder="Resultado de evaluación, meta del estudiante…"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </form>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignRow(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="inst-assign-form" disabled={assignMut.isPending}>
+              Asignar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
-
   )
-
 }
-
-

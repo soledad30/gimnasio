@@ -222,27 +222,33 @@ class RutinaEjercicioDetalle(BaseModel):
 
 
 class RutinaCreate(BaseModel):
-    instructor_id: Optional[int] = None
-    estudiante_id: Optional[int] = None
     nombre: str
-    objetivo: Optional[str] = None
+    objetivo: str
     ejercicios: List["RutinaEjercicioItem"] = []
 
 
 class RutinaUpdate(BaseModel):
     nombre: Optional[str] = None
     objetivo: Optional[str] = None
-    estudiante_id: Optional[int] = None
-    instructor_id: Optional[int] = None
     ejercicios: Optional[List[RutinaEjercicioItem]] = None
+
+
+class RutinaAsignarCreate(BaseModel):
+    estudiante_id: int
+    notas_asignacion: Optional[str] = None
 
 
 class RutinaResponse(BaseModel):
     id: int
     instructor_id: Optional[int]
+    instructor_nombre: Optional[str] = None
     estudiante_id: Optional[int]
+    estudiante_nombre: Optional[str] = None
+    plantilla_id: Optional[int] = None
+    es_plantilla: bool = False
     nombre: str
     objetivo: Optional[str]
+    notas_asignacion: Optional[str] = None
     ejercicios: List[RutinaEjercicioDetalle] = []
     created_at: datetime
 
@@ -254,6 +260,7 @@ class RutinaResponse(BaseModel):
 class PagoCreate(BaseModel):
     estudiante_id: int
     membresia_id: Optional[int] = None
+    inscripcion_id: Optional[int] = None
     monto: Decimal = Field(..., gt=0)
     metodo: str = "efectivo"
     referencia: Optional[str] = None
@@ -266,6 +273,7 @@ class PagoResponse(BaseModel):
     estudiante_id: int
     estudiante_nombre: Optional[str] = None
     membresia_id: Optional[int]
+    inscripcion_id: Optional[int] = None
     monto: Decimal
     metodo: str
     referencia: Optional[str]
@@ -280,33 +288,49 @@ class PagoResponse(BaseModel):
 # ── Actividad ─────────────────────────────────────────────────────────────────
 class ActividadCreate(BaseModel):
     instructor_id: Optional[int] = None
+    sala_id: Optional[int] = None
     nombre: str
     descripcion: Optional[str] = None
     dia_semana: Optional[str] = None
+    dias_semana: Optional[List[str]] = None
     hora_inicio: Optional[str] = None
     hora_fin: Optional[str] = None
     capacidad: int = 20
+    vigencia_tipo: str = "mes"
+    vigencia_inicio: Optional[date] = None
 
 
 class ActividadUpdate(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     dia_semana: Optional[str] = None
+    dias_semana: Optional[List[str]] = None
     hora_inicio: Optional[str] = None
     hora_fin: Optional[str] = None
     capacidad: Optional[int] = None
     instructor_id: Optional[int] = None
+    sala_id: Optional[int] = None
+    vigencia_tipo: Optional[str] = None
+    vigencia_inicio: Optional[date] = None
 
 
 class ActividadResponse(BaseModel):
     id: int
     instructor_id: Optional[int]
+    instructor_nombre: Optional[str] = None
+    sala_id: Optional[int] = None
+    sala_nombre: Optional[str] = None
     nombre: str
     descripcion: Optional[str]
     dia_semana: Optional[str]
+    dias_semana: List[str] = []
     hora_inicio: Optional[str]
     hora_fin: Optional[str]
     capacidad: int
+    vigencia_tipo: str = "mes"
+    vigencia_inicio: Optional[date] = None
+    vigencia_fin: Optional[date] = None
+    vigencia_label: Optional[str] = None
     cupos_ocupados: Optional[int] = None
     cupos_disponibles: Optional[int] = None
     created_at: datetime
@@ -318,7 +342,6 @@ class ActividadResponse(BaseModel):
 # ── Maquina ───────────────────────────────────────────────────────────────────
 class MaquinaCreate(BaseModel):
     instructor_id: Optional[int] = None
-    codigo: Optional[str] = None
     nombre: str
     descripcion: Optional[str] = None
     categoria: Optional[str] = None
@@ -326,6 +349,8 @@ class MaquinaCreate(BaseModel):
     ubicacion: Optional[str] = None
     fotourl: Optional[str] = None
     estado_maquina: str = "disponible"
+    anios_vida_util: int = Field(..., ge=1, le=50, description="Años de vida útil estimados")
+    fecha_adquisicion: Optional[date] = None
 
 
 class MaquinaUpdate(BaseModel):
@@ -337,7 +362,7 @@ class MaquinaUpdate(BaseModel):
     fotourl: Optional[str] = None
     estado_maquina: Optional[str] = None
     instructor_id: Optional[int] = None
-    codigo: Optional[str] = None
+    anios_vida_util: Optional[int] = Field(None, ge=1, le=50)
 
 
 class MaquinaResponse(BaseModel):
@@ -351,10 +376,112 @@ class MaquinaResponse(BaseModel):
     ubicacion: Optional[str] = None
     fotourl: Optional[str]
     estado_maquina: str
+    anios_vida_util: Optional[int] = None
+    fecha_adquisicion: Optional[date] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class MantenimientoChecklistItem(BaseModel):
+    id: str
+    texto: str
+    completado: bool = False
+
+
+class MantenimientoChecklistSeccion(BaseModel):
+    titulo: str
+    items: List[MantenimientoChecklistItem]
+
+
+class MantenimientoPlantillaResponse(BaseModel):
+    tipos: List[dict]
+    secciones: List[MantenimientoChecklistSeccion]
+
+
+class MantenimientoMaquinaCreate(BaseModel):
+    tipo: str = "preventivo"
+    responsable: Optional[str] = None
+    observaciones: Optional[str] = None
+    checklist: List[MantenimientoChecklistSeccion]
+    fecha_realizado: date
+    proximo_mantenimiento: Optional[date] = None
+    resultado: str = "ok"
+    marcar_disponible: bool = True
+
+
+class MantenimientoMaquinaResponse(BaseModel):
+    id: int
+    maquina_id: int
+    maquina_codigo: Optional[str] = None
+    maquina_nombre: Optional[str] = None
+    tipo: str
+    responsable: Optional[str] = None
+    observaciones: Optional[str] = None
+    checklist: List[dict]
+    fecha_realizado: date
+    proximo_mantenimiento: Optional[date] = None
+    resultado: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Inscripción mensual ───────────────────────────────────────────────────────
+class InscripcionCreate(BaseModel):
+    tipo: str  # actividad | sala_maquinas
+    actividad_id: Optional[int] = None
+    mes_inicio: Optional[date] = None
+
+
+class InscripcionAdminCreate(BaseModel):
+    estudiante_id: int
+    tipo: str
+    actividad_id: Optional[int] = None
+    mes_inicio: date
+
+
+class InscripcionConfirmarPago(BaseModel):
+    metodo: str = "efectivo"
+    referencia: Optional[str] = None
+    notas: Optional[str] = None
+
+
+class InscripcionResponse(BaseModel):
+    id: int
+    estudiante_id: int
+    estudiante_nombre: Optional[str] = None
+    tipo: str
+    actividad_id: Optional[int] = None
+    actividad_nombre: Optional[str] = None
+    mes_inicio: date
+    mes_label: Optional[str] = None
+    monto: Decimal
+    referencia_pago: str
+    qr_pago: str
+    estado: int
+    estado_label: Optional[str] = None
+    pago_id: Optional[int] = None
+    pago_expira_en: Optional[datetime] = None
+    qr_vigente: bool = True
+    creado_por_admin: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VentanaInscripcionResponse(BaseModel):
+    hoy: str
+    mes_objetivo: str
+    ventana_inicio: str
+    ventana_fin: str
+    ventana_abierta: bool
+    dias_ventana: int
+    precio_actividad: str
+    precio_sala_maquinas: str
 
 
 # ── Reserva ───────────────────────────────────────────────────────────────────
@@ -376,3 +503,120 @@ class ReservaResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Sala ──────────────────────────────────────────────────────────────────────
+class SalaResponse(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    capacidad: int
+    activa: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Horarios / asignaciones ───────────────────────────────────────────────────
+class ConfigGymResponse(BaseModel):
+    hora_apertura: str
+    hora_cierre: str
+    bloques: List[str]
+    turnos_coach: List[dict]
+    capacidad_actividad: int
+    capacidad_maquinas: int
+    min_coaches_manana: int
+    min_coaches_tarde: int
+    min_entrenadores_actividad: int
+
+
+class AsignacionInstructorCreate(BaseModel):
+    instructor_id: int
+    sala_id: int
+    turno: str  # manana | tarde
+    tipo: str = "coach_maquinas"
+    vigencia_tipo: str = "mes"
+    vigencia_inicio: Optional[date] = None
+    fecha: Optional[date] = None  # compatibilidad: se usa como vigencia_inicio si no hay otra
+
+
+class AsignacionInstructorResponse(BaseModel):
+    id: int
+    instructor_id: int
+    instructor_nombre: Optional[str] = None
+    sala_id: int
+    sala_nombre: Optional[str] = None
+    fecha: Optional[date] = None
+    turno: Optional[str] = None
+    hora_inicio: str
+    hora_fin: str
+    tipo: str
+    vigencia_tipo: str = "mes"
+    vigencia_inicio: Optional[date] = None
+    vigencia_fin: Optional[date] = None
+    vigencia_label: Optional[str] = None
+    actividad_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DisponibilidadBloque(BaseModel):
+    fecha: str
+    dia_semana: Optional[str] = None
+    hora_inicio: str
+    hora_fin: str
+    sala_id: int
+    sala_nombre: str
+    sala_tipo: str
+    capacidad: int
+    disponible: bool
+    motivo_ocupacion: Optional[str] = None
+
+
+class DisponibilidadSemanalCelda(BaseModel):
+    dia_semana: str
+    hora_inicio: str
+    hora_fin: str
+    sala_id: int
+    sala_nombre: str
+    disponible: bool
+    motivo_ocupacion: Optional[str] = None
+    actividad_nombre: Optional[str] = None
+
+
+class DisponibilidadSemanalSala(BaseModel):
+    id: int
+    nombre: str
+    etiqueta: str
+
+
+class DisponibilidadSemanalResponse(BaseModel):
+    referencia: Optional[str] = None
+    dias: List[str]
+    bloques: List[str]
+    salas: List[DisponibilidadSemanalSala]
+    celdas: List[DisponibilidadSemanalCelda]
+
+
+class StaffingResumen(BaseModel):
+    fecha: str
+    coaches_manana: int
+    coaches_tarde: int
+    coaches_manana_requeridos: int
+    coaches_tarde_requeridos: int
+    entrenadores_actividad: int
+    entrenadores_actividad_requeridos: int
+    actividades_programadas: int
+    alertas: List[str]
+    staffing_ok: bool
+
+
+class InstructorOcupacion(BaseModel):
+    instructor_id: int
+    instructor_nombre: str
+    fecha: str
+    bloques_ocupados: List[dict]
+    bloques_libres: List[str]

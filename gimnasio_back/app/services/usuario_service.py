@@ -1,5 +1,6 @@
 import secrets
 import string
+from dataclasses import dataclass
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -14,12 +15,19 @@ from app.models.instructor import Instructor
 from app.models.usuario import Usuario
 from app.schemas.usuario import UsuarioAdminResponse, UsuarioCreate, UsuarioUpdate
 from app.services.base_service import BaseService
+from app.services.notification_service import NotificationResult, send_temp_password
+
+
+@dataclass
+class PasswordResetResult:
+    password: str
+    notification: NotificationResult
 
 
 def _generar_password_temporal() -> str:
     chars = string.ascii_letters + string.digits
     suffix = "".join(secrets.choice(chars) for _ in range(8))
-    return f"Gym{suffix}!"
+    return f"Uagrm{suffix}!"
 
 
 class UsuarioService(BaseService[Usuario]):
@@ -28,6 +36,10 @@ class UsuarioService(BaseService[Usuario]):
 
     async def get_by_email(self, email: str) -> Optional[Usuario]:
         result = await self.db.execute(select(Usuario).where(Usuario.email == email))
+        return result.scalar_one_or_none()
+
+    async def get_by_telefono(self, telefono: str) -> Optional[Usuario]:
+        result = await self.db.execute(select(Usuario).where(Usuario.telefono == telefono))
         return result.scalar_one_or_none()
 
     async def _perfiles_por_usuario(self, usuario_ids: list[int]) -> tuple[dict[int, int], dict[int, int]]:
@@ -195,23 +207,43 @@ class UsuarioService(BaseService[Usuario]):
         await self.db.commit()
         return True
 
+    async def _aplicar_password_temporal(self, user: Usuario) -> PasswordResetResult:
+        nueva = _generar_password_temporal()
+        user.hashed_password = get_password_hash(nueva)
+        await self.db.commit()
+        notification = await send_temp_password(user, nueva)
+        return PasswordResetResult(password=nueva, notification=notification)
+
+    async def forgot_password_by_email(self, email: str) -> bool:
+        user = await self.get_by_email(email)
+        if not user or not user.activo:
+            return False
+        await self._aplicar_password_temporal(user)
+        return True
+
     async def reset_password_admin(
         self,
         user_id: int,
         password_nueva: Optional[str] = None,
         generar_temporal: bool = True,
-    ) -> str:
+        enviar_notificacion: bool = True,
+    ) -> PasswordResetResult:
         user = await self.get_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
         if password_nueva:
-            nueva = password_nueva
-        elif generar_temporal:
-            nueva = _generar_password_temporal()
-        else:
-            raise HTTPException(status_code=400, detail="Indica una contraseña nueva o genera una temporal")
+            user.hashed_password = get_password_hash(password_nueva)
+            await self.db.commit()
+            return PasswordResetResult(password=password_nueva, notification=NotificationResult())
 
-        user.hashed_password = get_password_hash(nueva)
-        await self.db.commit()
-        return nueva
+        if generar_temporal:
+            result = await self._aplicar_password_temporal(user)
+            if not enviar_notificacion:
+                return PasswordResetResult(
+                    password=result.password,
+                    notification=NotificationResult(),
+                )
+            return result
+
+        raise HTTPException(status_code=400, detail="Indica una contraseña nueva o genera una temporal")

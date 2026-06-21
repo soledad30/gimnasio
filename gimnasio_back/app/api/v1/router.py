@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estudiantes, instructores,
     acceso, membresias, pagos, rutinas, ejercicios, actividades,
-    maquinas, reservas, notificaciones, reportes,
+    maquinas, reservas, inscripciones, notificaciones, reportes, salas, horarios,
 )
 
 api_router = APIRouter()
@@ -19,5 +19,8 @@ api_router.include_router(ejercicios.router,     prefix="/ejercicios",     tags=
 api_router.include_router(actividades.router,    prefix="/actividades",    tags=[" Actividades"])
 api_router.include_router(maquinas.router,       prefix="/maquinas",       tags=[" Máquinas"])
 api_router.include_router(reservas.router,       prefix="/reservas",       tags=[" Reservas"])
+api_router.include_router(inscripciones.router,  prefix="/inscripciones",  tags=[" Inscripciones"])
 api_router.include_router(notificaciones.router, prefix="/notificaciones", tags=[" Notificaciones"])
 api_router.include_router(reportes.router,       prefix="/reportes",       tags=[" Reportes"])
+api_router.include_router(salas.router,          prefix="/salas",          tags=[" Salas"])
+api_router.include_router(horarios.router,       prefix="/horarios",       tags=[" Horarios"])

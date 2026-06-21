@@ -8,11 +8,14 @@ import type { UserRol } from '../types'
 
 import { LoginPage } from '../pages/LoginPage'
 
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage'
+
 import { RegisterPage } from '../pages/RegisterPage'
 
 import { AccesoPage } from '../pages/admin/AccesoPage'
 
 import { ActividadesPage } from '../pages/admin/ActividadesPage'
+import { HorariosPage } from '../pages/admin/HorariosPage'
 
 import { DashboardPage } from '../pages/admin/DashboardPage'
 
@@ -40,6 +43,7 @@ import { UsuariosPage } from '../pages/admin/UsuariosPage'
 
 import { InstructorActividadesPage } from '../pages/instructor/InstructorActividadesPage'
 
+import { InstructorHorariosPage } from '../pages/instructor/InstructorHorariosPage'
 import { InstructorHomePage } from '../pages/instructor/InstructorHomePage'
 
 import { InstructorReservasPage } from '../pages/instructor/InstructorReservasPage'
@@ -109,6 +113,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
       <Route
@@ -139,6 +144,14 @@ export function AppRoutes() {
           element={
             <AdminOnly>
               <InstructoresPage />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="horarios"
+          element={
+            <AdminOnly>
+              <HorariosPage />
             </AdminOnly>
           }
         />
@@ -203,6 +216,7 @@ export function AppRoutes() {
         <Route index element={<InstructorHomePage />} />
         <Route path="rutinas" element={<InstructorRutinasPage />} />
         <Route path="actividades" element={<InstructorActividadesPage />} />
+        <Route path="horarios" element={<InstructorHorariosPage />} />
         <Route path="reservas" element={<InstructorReservasPage />} />
       </Route>
 

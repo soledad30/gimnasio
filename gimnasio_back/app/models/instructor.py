@@ -16,3 +16,4 @@ class Instructor(Base):
     rutinas = relationship("Rutina", back_populates="instructor")
     actividades = relationship("Actividad", back_populates="instructor")
     maquinas = relationship("Maquina", back_populates="instructor")
+    asignaciones = relationship("AsignacionInstructor", back_populates="instructor")

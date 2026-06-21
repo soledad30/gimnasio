@@ -9,7 +9,14 @@ from sqlalchemy import select
 
 from app.models.estudiante import Estudiante
 from app.models.instructor import Instructor
-from app.schemas.auth import PerfilResponse, RegisterRequest, Token, TokenRefresh
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    PerfilResponse,
+    RegisterRequest,
+    Token,
+    TokenRefresh,
+)
 from app.schemas.estudiante import EstudianteCreate
 from app.schemas.usuario import UsuarioResponse
 from app.services.estudiante_service import EstudianteService
@@ -47,6 +54,25 @@ async def login(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
     )
+
+
+FORGOT_PASSWORD_MSG = (
+    "Si los datos están registrados, recibirás una contraseña temporal en tu correo."
+)
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    if data.telefono and not data.email:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="El restablecimiento por teléfono estará disponible próximamente.",
+        )
+    if not data.email:
+        raise HTTPException(status_code=400, detail="Ingresa tu correo electrónico")
+
+    await UsuarioService(db).forgot_password_by_email(str(data.email))
+    return ForgotPasswordResponse(mensaje=FORGOT_PASSWORD_MSG)
 
 
 @router.post("/refresh", response_model=Token)

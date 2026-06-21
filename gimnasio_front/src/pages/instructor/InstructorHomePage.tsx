@@ -52,7 +52,7 @@ export function InstructorHomePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserCog className="h-5 w-5 text-primary" />
-            Tu trabajo en GymPro
+            Tu trabajo en UAGRM-GYM
           </CardTitle>
           <CardDescription>
             Gestiona las rutinas que has creado, las actividades que impartes y las reservas de tus

@@ -37,7 +37,23 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str = "noreply@gympro.com"
-    EMAILS_FROM_NAME: str = "GymPro"
+    EMAILS_FROM_NAME: str = "UAGRM-GYM"
+
+    # Horario UAGRM-GYM (7:00 – 19:00)
+    GYM_OPEN_HOUR: int = 7
+    GYM_CLOSE_HOUR: int = 19
+    CAPACIDAD_SALA_ACTIVIDAD: int = 20
+    CAPACIDAD_SALA_MAQUINAS: int = 30
+    MIN_COACHES_MANANA: int = 2
+    MIN_COACHES_TARDE: int = 2
+    MIN_ENTRENADORES_ACTIVIDAD: int = 2
+    GYM_AFTERNOON_START_HOUR: int = 13
+
+    # Inscripciones mensuales (actividades / sala máquinas)
+    DIAS_VENTANA_INSCRIPCION: int = 10
+    PRECIO_INSCRIPCION_ACTIVIDAD: float = 50.0
+    PRECIO_INSCRIPCION_SALA_MAQUINAS: float = 80.0
+    HORAS_VALIDEZ_QR_PAGO: int = 24
 
     class Config:
         env_file = ".env"

@@ -70,6 +70,8 @@ const adminNav: NavItem[] = [
 
   { to: '/admin/instructores', label: 'Entrenadores', icon: UserCog, roles: ['admin'] },
 
+  { to: '/admin/horarios', label: 'Horarios y salas', icon: CalendarDays, roles: ['admin'] },
+
   { to: '/admin/actividades', label: 'Actividades', icon: Activity, roles: ['admin'] },
 
   { to: '/admin/maquinas', label: 'Máquinas y equipos', icon: Wrench, roles: ['admin'] },
@@ -121,6 +123,8 @@ const instructorNav: NavItem[] = [
   { to: '/instructor/rutinas', label: 'Mis rutinas', icon: Dumbbell },
 
   { to: '/instructor/actividades', label: 'Mis actividades', icon: Activity },
+
+  { to: '/instructor/horarios', label: 'Turnos máquinas', icon: CalendarDays },
 
   { to: '/instructor/reservas', label: 'Reservas', icon: CalendarDays },
 

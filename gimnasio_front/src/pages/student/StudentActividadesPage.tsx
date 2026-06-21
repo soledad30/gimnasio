@@ -7,10 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatDias } from '@/lib/diasSemana'
 
-function horario(a: { dia_semana?: string | null; hora_inicio?: string | null; hora_fin?: string | null }) {
+function horario(a: {
+  dia_semana?: string | null
+  dias_semana?: string[] | null
+  hora_inicio?: string | null
+  hora_fin?: string | null
+}) {
   const parts = []
-  if (a.dia_semana) parts.push(a.dia_semana.charAt(0).toUpperCase() + a.dia_semana.slice(1))
+  const dias = a.dias_semana?.length ? a.dias_semana.join(',') : a.dia_semana
+  const diasFmt = formatDias(dias)
+  if (diasFmt) parts.push(diasFmt)
   if (a.hora_inicio && a.hora_fin) parts.push(`${a.hora_inicio} - ${a.hora_fin}`)
   return parts.join(' · ')
 }

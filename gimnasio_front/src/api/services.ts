@@ -5,12 +5,19 @@ import type {
   AlertaSeguridad,
   CodigoAcceso,
   Actividad,
+  AsignacionInstructor,
+  ConfigGym,
   DashboardKpis,
+  DisponibilidadBloque,
+  DisponibilidadSemanal,
   Ejercicio,
   Estudiante,
+  Inscripcion,
   Instructor,
   InstructorPanel,
   Maquina,
+  MantenimientoMaquina,
+  MantenimientoPlantilla,
   Membresia,
   Pago,
   NfcScanResult,
@@ -19,10 +26,13 @@ import type {
   ReporteAccesos,
   Reserva,
   Rutina,
+  Sala,
+  StaffingResumen,
   TokenResponse,
   ResetPasswordResult,
   Usuario,
   UsuarioAdmin,
+  VentanaInscripcion,
 } from '../types'
 
 export interface RegisterData {
@@ -44,6 +54,8 @@ export const authApi = {
   register: (data: RegisterData) => api.post<TokenResponse>('/auth/register', data),
   me: () => api.get<Usuario>('/auth/me'),
   perfil: () => api.get<PerfilResponse>('/auth/perfil'),
+  forgotPassword: (data: { email?: string; telefono?: string }) =>
+    api.post<{ mensaje: string }>('/auth/forgot-password', data),
 }
 
 export const reportesApi = {
@@ -107,6 +119,36 @@ export const actividadesApi = {
   delete: (id: number) => api.delete(`/actividades/${id}`),
 }
 
+export const salasApi = {
+  list: () => api.get<Sala[]>('/salas/'),
+}
+
+export const horariosApi = {
+  config: () => api.get<ConfigGym>('/horarios/config'),
+  disponibilidadSemanal: (referencia?: string) =>
+    api.get<DisponibilidadSemanal>('/horarios/disponibilidad-semanal', {
+      params: referencia ? { referencia } : {},
+    }),
+  disponibilidad: (fecha: string, diaSemana?: string) =>
+    api.get<DisponibilidadBloque[]>('/horarios/disponibilidad', {
+      params: { fecha, ...(diaSemana ? { dia_semana: diaSemana } : {}) },
+    }),
+  staffing: (fecha: string) => api.get<StaffingResumen>('/horarios/staffing', { params: { fecha } }),
+  asignaciones: (fecha?: string, tipo?: string) =>
+    api.get<AsignacionInstructor[]>('/horarios/asignaciones', {
+      params: { ...(fecha ? { fecha } : {}), ...(tipo ? { tipo } : {}) },
+    }),
+  misAsignaciones: (fecha?: string) =>
+    api.get<AsignacionInstructor[]>('/horarios/mis-asignaciones', {
+      params: fecha ? { fecha } : {},
+    }),
+  crearAsignacion: (data: Record<string, unknown>) =>
+    api.post<AsignacionInstructor>('/horarios/asignaciones', data),
+  eliminarAsignacion: (id: number) => api.delete(`/horarios/asignaciones/${id}`),
+  miTurnoCoach: (data: Record<string, unknown>) =>
+    api.post<AsignacionInstructor>('/horarios/asignaciones/mi-turno', data),
+}
+
 export const maquinasApi = {
   list: () => api.get<Maquina[]>('/maquinas/'),
   get: (id: number) => api.get<Maquina>(`/maquinas/${id}`),
@@ -114,6 +156,12 @@ export const maquinasApi = {
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Maquina>(`/maquinas/${id}`, data),
   delete: (id: number) => api.delete(`/maquinas/${id}`),
+  plantillaMantenimiento: (id: number) =>
+    api.get<MantenimientoPlantilla>(`/maquinas/${id}/mantenimiento/plantilla`),
+  listarMantenimientos: (id: number) =>
+    api.get<MantenimientoMaquina[]>(`/maquinas/${id}/mantenimientos`),
+  registrarMantenimiento: (id: number, data: Record<string, unknown>) =>
+    api.post<MantenimientoMaquina>(`/maquinas/${id}/mantenimientos`, data),
   uploadFoto: (file: File) => {
     const form = new FormData()
     form.append('file', file)
@@ -153,12 +201,33 @@ export const reservasApi = {
   cancelar: (id: number) => api.patch<Reserva>(`/reservas/${id}/cancelar`),
 }
 
+export const inscripcionesApi = {
+  ventana: () => api.get<VentanaInscripcion>('/inscripciones/ventana'),
+  list: () => api.get<Inscripcion[]>('/inscripciones/'),
+  pendientes: () => api.get<Inscripcion[]>('/inscripciones/pendientes'),
+  habilitados: (mes?: string) =>
+    api.get<Inscripcion[]>('/inscripciones/habilitados', { params: mes ? { mes } : {} }),
+  mis: () => api.get<Inscripcion[]>('/inscripciones/mis-inscripciones'),
+  create: (data: Record<string, unknown>) => api.post<Inscripcion>('/inscripciones/', data),
+  createAdmin: (data: Record<string, unknown>) =>
+    api.post<Inscripcion>('/inscripciones/admin', data),
+  confirmarPago: (id: number, data: Record<string, unknown>) =>
+    api.post<Inscripcion>(`/inscripciones/${id}/confirmar-pago`, data),
+  renovarPago: (id: number) => api.post<Inscripcion>(`/inscripciones/${id}/renovar-pago`),
+  buscarReferencia: (referencia: string) =>
+    api.get<Inscripcion>(`/inscripciones/por-referencia/${encodeURIComponent(referencia)}`),
+  cancelar: (id: number) => api.patch<Inscripcion>(`/inscripciones/${id}/cancelar`),
+}
+
 export const rutinasApi = {
   list: () => api.get<Rutina[]>('/rutinas/'),
   mis: () => api.get<Rutina[]>('/rutinas/mis-rutinas'),
   misAsignadas: () => api.get<Rutina[]>('/rutinas/mis-asignadas'),
+  asignaciones: () => api.get<Rutina[]>('/rutinas/asignaciones'),
   get: (id: number) => api.get<Rutina>(`/rutinas/${id}`),
   create: (data: Record<string, unknown>) => api.post<Rutina>('/rutinas/', data),
+  asignar: (id: number, data: { estudiante_id: number; notas_asignacion?: string }) =>
+    api.post<Rutina>(`/rutinas/${id}/asignar`, data),
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Rutina>(`/rutinas/${id}`, data),
   delete: (id: number) => api.delete(`/rutinas/${id}`),

@@ -38,8 +38,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const SESSION_TIMEOUT_MS = 8000
+
 async function fetchSession() {
-  const [me, perfil] = await Promise.all([authApi.me(), authApi.perfil()])
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('SESSION_TIMEOUT')), SESSION_TIMEOUT_MS)
+  })
+  const [me, perfil] = await Promise.race([
+    Promise.all([authApi.me(), authApi.perfil()]),
+    timeout,
+  ])
   return { user: me.data, perfil: perfil.data }
 }
 

@@ -1,10 +1,12 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.estudiante import Estudiante
 from app.models.notificacion import Notificacion
+from app.services.email_service import email_service
 
 
 class NotificacionService:
@@ -86,6 +88,81 @@ class NotificacionService:
                 titulo="Reserva confirmada",
                 mensaje=f"Tu reserva para {actividad_nombre} el {fecha} fue confirmada.",
                 tipo="reserva",
+                leida=False,
+            )
+        )
+
+    async def notificar_pago_pendiente_inscripcion(
+        self,
+        estudiante_id: int,
+        concepto: str,
+        mes_label: str,
+        monto: str,
+        referencia: str,
+        qr_pago: str,
+        expira_en: datetime,
+        creado_por_admin: bool = False,
+        renovacion: bool = False,
+    ) -> None:
+        origen = "El administrador registró tu inscripción" if creado_por_admin else "Tu inscripción"
+        if renovacion:
+            origen = "Se renovó tu método de pago para"
+        expira_txt = expira_en.strftime("%d/%m/%Y %H:%M")
+        self.db.add(
+            Notificacion(
+                estudiante_id=estudiante_id,
+                fecha=date.today(),
+                titulo="Pago pendiente — inscripción",
+                mensaje=(
+                    f"{origen} {concepto} en {mes_label}. "
+                    f"Monto: Bs. {monto}. Referencia: {referencia}. "
+                    f"QR: {qr_pago}. "
+                    f"Válido {settings.HORAS_VALIDEZ_QR_PAGO} h (hasta {expira_txt}). "
+                    f"Cancela antes de que empiece el mes para ingresar al gym."
+                ),
+                tipo="pago",
+                leida=False,
+            )
+        )
+
+    async def enviar_pago_pendiente_email(
+        self,
+        estudiante: Estudiante,
+        *,
+        concepto: str,
+        mes_label: str,
+        monto: str,
+        referencia: str,
+        qr_pago: str,
+        expira_en: datetime,
+    ) -> bool:
+        email = estudiante.email
+        if not email:
+            return False
+        return await email_service.send_pago_pendiente(
+            email,
+            estudiante.nombre,
+            concepto=concepto,
+            mes_label=mes_label,
+            monto=monto,
+            referencia=referencia,
+            qr_pago=qr_pago,
+            expira_en=expira_en,
+        )
+
+    async def notificar_inscripcion_confirmada(
+        self,
+        estudiante_id: int,
+        concepto: str,
+        mes_label: str,
+    ) -> None:
+        self.db.add(
+            Notificacion(
+                estudiante_id=estudiante_id,
+                fecha=date.today(),
+                titulo="Inscripción confirmada",
+                mensaje=f"Tu pago fue registrado. Inscripción activa: {concepto} — {mes_label}.",
+                tipo="inscripcion",
                 leida=False,
             )
         )

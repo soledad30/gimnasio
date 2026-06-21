@@ -66,7 +66,7 @@ export function RegisterPage() {
         <div className="flex items-center gap-3">
           <Dumbbell className="h-10 w-10 text-primary" />
           <span className="text-3xl font-bold">
-            Gym<span className="text-primary">Pro</span>
+            UAGRM<span className="text-primary">-GYM</span>
           </span>
         </div>
         <div className="space-y-4">
@@ -75,7 +75,7 @@ export function RegisterPage() {
             Crea tu cuenta de estudiante para reservar clases, ver rutinas y recibir notificaciones.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">© GymPro — Sistema de gestión</p>
+        <p className="text-xs text-muted-foreground">© UAGRM-GYM — Sistema de gestión</p>
       </div>
       <div className="flex items-center justify-center p-6 gym-gradient">
         <Card className="w-full max-w-md border-border/60 bg-card/95 backdrop-blur">

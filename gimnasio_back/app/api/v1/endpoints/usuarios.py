@@ -85,14 +85,21 @@ async def reset_password(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    nueva = await UsuarioService(db).reset_password_admin(
+    es_temporal = data.generar_temporal and not data.password_nueva
+    result = await UsuarioService(db).reset_password_admin(
         usuario_id,
         password_nueva=data.password_nueva,
-        generar_temporal=data.generar_temporal and not data.password_nueva,
+        generar_temporal=es_temporal,
     )
+    mostrar_password = es_temporal and not result.notification.enviado_email
+    mensaje = "Contraseña restablecida correctamente"
+    if es_temporal and result.notification.enviado_email:
+        mensaje = "Contraseña temporal generada y enviada al correo del usuario"
     return ResetPasswordResponse(
-        mensaje="Contraseña restablecida correctamente",
-        password_temporal=nueva if data.generar_temporal and not data.password_nueva else None,
+        mensaje=mensaje,
+        password_temporal=result.password if mostrar_password else None,
+        enviado_email=result.notification.enviado_email,
+        enviado_sms=result.notification.enviado_sms,
     )
 
 

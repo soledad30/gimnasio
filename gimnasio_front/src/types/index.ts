@@ -18,6 +18,8 @@ export interface UsuarioAdmin extends Usuario {
 export interface ResetPasswordResult {
   mensaje: string
   password_temporal?: string | null
+  enviado_email?: boolean
+  enviado_sms?: boolean
 }
 
 export interface TokenResponse {
@@ -122,15 +124,115 @@ export interface RutinaEjercicioDetalle {
 export interface Actividad {
   id: number
   instructor_id?: number | null
+  instructor_nombre?: string | null
+  sala_id?: number | null
+  sala_nombre?: string | null
   nombre: string
   descripcion?: string | null
   dia_semana?: string | null
+  dias_semana?: string[]
   hora_inicio?: string | null
   hora_fin?: string | null
   capacidad: number
+  vigencia_tipo?: string
+  vigencia_inicio?: string | null
+  vigencia_fin?: string | null
+  vigencia_label?: string | null
   cupos_ocupados?: number | null
   cupos_disponibles?: number | null
   created_at: string
+}
+
+export interface Sala {
+  id: number
+  nombre: string
+  tipo: 'actividad' | 'maquinas'
+  capacidad: number
+  activa: boolean
+  created_at: string
+}
+
+export interface TurnoCoach {
+  id: string
+  nombre: string
+  hora_inicio: string
+  hora_fin: string
+}
+
+export interface ConfigGym {
+  hora_apertura: string
+  hora_cierre: string
+  bloques: string[]
+  turnos_coach: TurnoCoach[]
+  capacidad_actividad: number
+  capacidad_maquinas: number
+  min_coaches_manana: number
+  min_coaches_tarde: number
+  min_entrenadores_actividad: number
+}
+
+export interface AsignacionInstructor {
+  id: number
+  instructor_id: number
+  instructor_nombre?: string | null
+  sala_id: number
+  sala_nombre?: string | null
+  fecha?: string | null
+  turno?: string | null
+  hora_inicio: string
+  hora_fin: string
+  tipo: string
+  vigencia_tipo?: string
+  vigencia_inicio?: string | null
+  vigencia_fin?: string | null
+  vigencia_label?: string | null
+  actividad_id?: number | null
+  created_at: string
+}
+
+export interface StaffingResumen {
+  fecha: string
+  coaches_manana: number
+  coaches_tarde: number
+  coaches_manana_requeridos: number
+  coaches_tarde_requeridos: number
+  entrenadores_actividad: number
+  entrenadores_actividad_requeridos: number
+  actividades_programadas: number
+  alertas: string[]
+  staffing_ok: boolean
+}
+
+export interface DisponibilidadBloque {
+  fecha: string
+  dia_semana?: string | null
+  hora_inicio: string
+  hora_fin: string
+  sala_id: number
+  sala_nombre: string
+  sala_tipo: string
+  capacidad: number
+  disponible: boolean
+  motivo_ocupacion?: string | null
+}
+
+export interface DisponibilidadSemanalCelda {
+  dia_semana: string
+  hora_inicio: string
+  hora_fin: string
+  sala_id: number
+  sala_nombre: string
+  disponible: boolean
+  motivo_ocupacion?: string | null
+  actividad_nombre?: string | null
+}
+
+export interface DisponibilidadSemanal {
+  referencia?: string
+  dias: string[]
+  bloques: string[]
+  salas: { id: number; nombre: string; etiqueta: string }[]
+  celdas: DisponibilidadSemanalCelda[]
 }
 
 export interface Pago {
@@ -157,6 +259,39 @@ export interface Maquina {
   ubicacion?: string | null
   fotourl?: string | null
   estado_maquina: string
+  anios_vida_util?: number | null
+  fecha_adquisicion?: string | null
+  created_at: string
+}
+
+export interface MantenimientoChecklistItem {
+  id: string
+  texto: string
+  completado: boolean
+}
+
+export interface MantenimientoChecklistSeccion {
+  titulo: string
+  items: MantenimientoChecklistItem[]
+}
+
+export interface MantenimientoPlantilla {
+  tipos: { value: string; label: string }[]
+  secciones: MantenimientoChecklistSeccion[]
+}
+
+export interface MantenimientoMaquina {
+  id: number
+  maquina_id: number
+  maquina_codigo?: string | null
+  maquina_nombre?: string | null
+  tipo: string
+  responsable?: string | null
+  observaciones?: string | null
+  checklist: MantenimientoChecklistSeccion[]
+  fecha_realizado: string
+  proximo_mantenimiento?: string | null
+  resultado: string
   created_at: string
 }
 
@@ -241,12 +376,49 @@ export interface Reserva {
   created_at: string
 }
 
+export interface Inscripcion {
+  id: number
+  estudiante_id: number
+  estudiante_nombre?: string | null
+  tipo: 'actividad' | 'sala_maquinas' | string
+  actividad_id?: number | null
+  actividad_nombre?: string | null
+  mes_inicio: string
+  mes_label?: string | null
+  monto: string
+  referencia_pago: string
+  qr_pago: string
+  estado: number
+  estado_label?: string | null
+  pago_id?: number | null
+  pago_expira_en?: string | null
+  qr_vigente?: boolean
+  creado_por_admin: boolean
+  created_at: string
+}
+
+export interface VentanaInscripcion {
+  hoy: string
+  mes_objetivo: string
+  ventana_inicio: string
+  ventana_fin: string
+  ventana_abierta: boolean
+  dias_ventana: number
+  precio_actividad: string
+  precio_sala_maquinas: string
+}
+
 export interface Rutina {
   id: number
   instructor_id?: number | null
+  instructor_nombre?: string | null
   estudiante_id?: number | null
+  estudiante_nombre?: string | null
+  plantilla_id?: number | null
+  es_plantilla?: boolean
   nombre: string
   objetivo?: string | null
+  notas_asignacion?: string | null
   ejercicios?: RutinaEjercicioDetalle[]
   created_at: string
 }

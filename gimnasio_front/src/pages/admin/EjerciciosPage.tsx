@@ -441,7 +441,7 @@ export function EjerciciosPage() {
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
                   />
-                  <p className="text-xs text-muted-foreground">JPG, PNG, WEBP o GIF. Máx. 5 MB.</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WEBP o GIF. Máx. 10 MB.</p>
                 </div>
               </div>
               <div className="space-y-2">

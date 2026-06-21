@@ -29,3 +29,12 @@ class Token(BaseModel):
 
 class TokenRefresh(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: Optional[EmailStr] = None
+    telefono: Optional[str] = Field(None, max_length=20)
+
+
+class ForgotPasswordResponse(BaseModel):
+    mensaje: str

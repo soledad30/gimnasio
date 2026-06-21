@@ -4,14 +4,18 @@ import { actividadesApi } from '@/api/services'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatDias } from '@/lib/diasSemana'
 
 function horario(act: {
   dia_semana?: string | null
+  dias_semana?: string[] | null
   hora_inicio?: string | null
   hora_fin?: string | null
 }) {
   const parts = []
-  if (act.dia_semana) parts.push(act.dia_semana.charAt(0).toUpperCase() + act.dia_semana.slice(1))
+  const dias = act.dias_semana?.length ? act.dias_semana.join(',') : act.dia_semana
+  const diasFmt = formatDias(dias)
+  if (diasFmt) parts.push(diasFmt)
   if (act.hora_inicio && act.hora_fin) parts.push(`${act.hora_inicio} - ${act.hora_fin}`)
   else if (act.hora_inicio) parts.push(act.hora_inicio)
   return parts.join(' · ') || 'Sin horario'

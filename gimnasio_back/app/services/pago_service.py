@@ -17,6 +17,7 @@ def to_pago_response(pago: Pago) -> PagoResponse:
         estudiante_id=pago.estudiante_id,
         estudiante_nombre=pago.estudiante.nombre if pago.estudiante else None,
         membresia_id=pago.membresia_id,
+        inscripcion_id=pago.inscripcion_id,
         monto=pago.monto,
         metodo=pago.metodo,
         referencia=pago.referencia,

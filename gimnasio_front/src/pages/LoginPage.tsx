@@ -17,14 +17,7 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center gym-gradient">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-  if (user) return <Navigate to={homePath} replace />
+  if (!loading && user) return <Navigate to={homePath} replace />
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -46,7 +39,7 @@ export function LoginPage() {
         <div className="flex items-center gap-3">
           <Dumbbell className="h-10 w-10 text-primary" />
           <span className="text-3xl font-bold">
-            Gym<span className="text-primary">Pro</span>
+            UAGRM<span className="text-primary">-GYM</span>
           </span>
         </div>
         <div className="space-y-4">
@@ -57,13 +50,15 @@ export function LoginPage() {
             Membresías, acceso NFC, rutinas, clases y reportes en un solo panel profesional.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">© GymPro — Sistema de gestión</p>
+        <p className="text-xs text-muted-foreground">© UAGRM-GYM — Sistema de gestión</p>
       </div>
       <div className="flex items-center justify-center p-6 gym-gradient">
         <Card className="w-full max-w-md border-border/60 bg-card/95 backdrop-blur">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
-            <CardDescription>Ingresa tus credenciales de acceso</CardDescription>
+            <CardDescription>
+              {loading ? 'Verificando sesión…' : 'Ingresa tus credenciales de acceso'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
@@ -93,6 +88,14 @@ export function LoginPage() {
                   required
                   autoComplete="current-password"
                 />
+              </div>
+              <div className="flex justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
               </div>
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -11,6 +11,8 @@ from app.models.actividad import Actividad
 from app.models.estudiante import Estudiante
 from app.models.reserva import Reserva
 from app.schemas.schemas import ReservaCreate, ReservaResponse
+from app.services.scheduling_service import formatear_dias
+from app.services.scheduling_service import validar_reserva_estudiante
 from app.services.notificacion_service import NotificacionService
 
 router = APIRouter()
@@ -19,7 +21,7 @@ router = APIRouter()
 def _horario(act: Actividad) -> str:
     parts = []
     if act.dia_semana:
-        parts.append(act.dia_semana.capitalize())
+        parts.append(formatear_dias(act.dia_semana))
     if act.hora_inicio and act.hora_fin:
         parts.append(f"{act.hora_inicio}-{act.hora_fin}")
     return " ".join(parts)
@@ -56,6 +58,29 @@ async def crear_reserva(
     estudiante = est_result.scalar_one_or_none()
     if not estudiante:
         raise HTTPException(status_code=400, detail="El usuario no tiene perfil de estudiante")
+
+    await validar_reserva_estudiante(db, actividad, data.fecha)
+
+    mes_reserva = data.fecha.replace(day=1)
+    from app.services.inscripcion_service import (
+        tiene_inscripcion_confirmada,
+        tiene_inscripcion_pendiente,
+    )
+
+    if not await tiene_inscripcion_confirmada(
+        db, estudiante.id, "actividad", mes_reserva, actividad_id=actividad.id
+    ):
+        if await tiene_inscripcion_pendiente(
+            db, estudiante.id, "actividad", mes_reserva, actividad_id=actividad.id
+        ):
+            raise HTTPException(
+                status_code=402,
+                detail="Tienes inscripción pendiente de pago. Cancela en recepción o paga para reservar.",
+            )
+        raise HTTPException(
+            status_code=403,
+            detail="Necesitas inscripción mensual confirmada y pagada para reservar clases",
+        )
 
     count = await db.scalar(
         select(func.count(Reserva.id)).where(

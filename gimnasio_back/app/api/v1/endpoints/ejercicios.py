@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import get_current_admin, get_current_usuario, get_db
+from app.core.uploads import save_image_upload
 from app.models.ejercicio import Ejercicio
 from app.schemas.schemas import EjercicioCreate, EjercicioResponse, EjercicioUpdate
 

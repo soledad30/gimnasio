@@ -93,6 +93,11 @@ class AccesoService(BaseService[Acceso]):
         estado = "sin membresía" if not estudiante.membresia else "membresía vencida"
         return False, estado
 
+    async def _acceso_por_inscripcion(self, estudiante: Estudiante) -> tuple[bool, str]:
+        from app.services.inscripcion_service import estudiante_habilitado_hoy
+
+        return await estudiante_habilitado_hoy(self.db, estudiante.id)
+
     async def _registrar_denegado(
         self,
         *,
@@ -116,6 +121,11 @@ class AccesoService(BaseService[Acceso]):
             mensaje = (
                 f"Acceso denegado: {motivo}. "
                 "Asigna un plan en Admin → Membresías para habilitar el ingreso."
+            )
+        elif estudiante and "inscripción" in motivo.lower():
+            mensaje = (
+                f"Acceso denegado: {motivo}. "
+                "Inscríbete y paga tu cuota mensual (actividad o sala de máquinas) para ingresar."
             )
         elif estudiante:
             mensaje = f"Acceso denegado: {motivo}"
@@ -144,7 +154,7 @@ class AccesoService(BaseService[Acceso]):
         hora_int = _hora_int(now)
         fecha_str = now.strftime("%Y-%m-%d")
 
-        activa, estado = await self._membresia_activa(estudiante)
+        activa, estado = await self._acceso_por_inscripcion(estudiante)
         if not activa:
             return await self._registrar_denegado(
                 fecha_str=fecha_str,

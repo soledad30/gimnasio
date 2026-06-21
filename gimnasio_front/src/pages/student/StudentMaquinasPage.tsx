@@ -54,39 +54,41 @@ export function StudentMaquinasPage() {
             const estado = estadoBadge(m.estado_maquina)
             return (
               <Card key={m.id} className="overflow-hidden border-border/60">
-                <CardContent className="flex gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      {m.categoria && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'border text-xs',
-                            CATEGORIA_STYLES[m.categoria.toLowerCase()] ?? ''
-                          )}
-                        >
-                          {m.categoria}
-                        </Badge>
-                      )}
-                      <Badge variant={estado.variant} className="text-xs">
-                        {estado.label}
+                <CardContent className="p-4">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    {m.categoria && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'border text-xs',
+                          CATEGORIA_STYLES[m.categoria.toLowerCase()] ?? ''
+                        )}
+                      >
+                        {m.categoria}
                       </Badge>
-                    </div>
-                    <h3 className="font-semibold">{m.nombre}</h3>
-                    {m.ubicacion && (
-                      <p className="mt-1 text-xs text-muted-foreground">{m.ubicacion}</p>
                     )}
-                    {m.descripcion && (
-                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                        {m.descripcion}
-                      </p>
-                    )}
+                    <Badge variant={estado.variant} className="text-xs">
+                      {estado.label}
+                    </Badge>
                   </div>
-                  <MaquinaFoto
-                    nombre={m.nombre}
-                    fotourl={m.fotourl}
-                    className="h-28 w-24 shrink-0 sm:w-28"
-                  />
+                  <div className="flex gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold">{m.nombre}</h3>
+                      {m.ubicacion && (
+                        <p className="mt-1 text-xs text-muted-foreground">{m.ubicacion}</p>
+                      )}
+                      {m.descripcion && (
+                        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                          {m.descripcion}
+                        </p>
+                      )}
+                    </div>
+                    <MaquinaFoto
+                      nombre={m.nombre}
+                      fotourl={m.fotourl}
+                      className="h-28 w-24 shrink-0 self-start sm:w-28"
+                    />
+                  </div>
                 </CardContent>
               </Card>
             )

@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { formatDias } from '@/lib/diasSemana'
 
 type ModalMode = 'create' | 'edit' | 'view' | null
 
@@ -44,11 +45,14 @@ function especialidadStyle(especialidad: string) {
 
 function horarioLabel(act: {
   dia_semana?: string | null
+  dias_semana?: string[] | null
   hora_inicio?: string | null
   hora_fin?: string | null
 }) {
   const parts = []
-  if (act.dia_semana) parts.push(act.dia_semana.charAt(0).toUpperCase() + act.dia_semana.slice(1))
+  const dias = act.dias_semana?.length ? act.dias_semana.join(',') : act.dia_semana
+  const diasFmt = formatDias(dias)
+  if (diasFmt) parts.push(diasFmt)
   if (act.hora_inicio && act.hora_fin) parts.push(`${act.hora_inicio}-${act.hora_fin}`)
   return parts.join(' ')
 }
@@ -414,7 +418,7 @@ export function InstructoresPage() {
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
                 />
-                <p className="text-xs text-muted-foreground">JPG, PNG, WEBP o GIF. Máx. 5 MB.</p>
+                <p className="text-xs text-muted-foreground">JPG, PNG, WEBP o GIF. Máx. 10 MB.</p>
               </div>
             </div>
             <div className="space-y-2">

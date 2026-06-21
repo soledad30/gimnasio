@@ -18,7 +18,7 @@ import app.models  # noqa: F401
 
 ADMIN_EMAIL = "admin@gympro.com"
 ADMIN_PASSWORD = "admin123"
-ADMIN_NOMBRE = "Administrador GymPro"
+ADMIN_NOMBRE = "Administrador UAGRM-GYM"
 
 
 async def main() -> None:
@@ -27,8 +27,20 @@ async def main() -> None:
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Usuario).where(Usuario.email == ADMIN_EMAIL))
-        if result.scalar_one_or_none():
-            print(f"Ya existe el admin: {ADMIN_EMAIL}")
+        existing = result.scalar_one_or_none()
+        if existing:
+            if existing.nombre != ADMIN_NOMBRE:
+                existing.nombre = ADMIN_NOMBRE
+                admin_row = await db.execute(
+                    select(Administrador).where(Administrador.usuario_id == existing.id)
+                )
+                admin = admin_row.scalar_one_or_none()
+                if admin:
+                    admin.nombre = ADMIN_NOMBRE
+                await db.commit()
+                print(f"Admin actualizado: {ADMIN_NOMBRE}")
+            else:
+                print(f"Ya existe el admin: {ADMIN_EMAIL}")
             return
 
         user = Usuario(

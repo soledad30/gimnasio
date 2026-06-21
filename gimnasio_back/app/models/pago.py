@@ -9,6 +9,7 @@ class Pago(Base):
 
     estudiante_id = Column(Integer, ForeignKey("estudiantes.id"), nullable=False)
     membresia_id = Column(Integer, ForeignKey("membresias.id"), nullable=True)
+    inscripcion_id = Column(Integer, ForeignKey("inscripciones.id"), nullable=True)
 
     monto = Column(Numeric(10, 2), nullable=False)
     metodo = Column(String(50), nullable=False, default="efectivo")
@@ -18,3 +19,9 @@ class Pago(Base):
 
     estudiante = relationship("Estudiante")
     membresia = relationship("Membresia")
+    inscripcion = relationship(
+        "Inscripcion",
+        back_populates="pago",
+        foreign_keys="Inscripcion.pago_id",
+        uselist=False,
+    )

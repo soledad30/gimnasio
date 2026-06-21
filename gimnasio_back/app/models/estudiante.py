@@ -34,4 +34,5 @@ class Estudiante(Base):
     notificaciones = relationship("Notificacion", back_populates="estudiante")
     membresia = relationship("Membresia", back_populates="estudiante", uselist=False)
     reservas = relationship("Reserva", back_populates="estudiante")
+    inscripciones = relationship("Inscripcion", back_populates="estudiante")
     rutinas = relationship("Rutina", back_populates="estudiante")

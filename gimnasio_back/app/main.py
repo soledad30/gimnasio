@@ -41,6 +41,38 @@ async def seed_ejercicios_default() -> None:
         await db.commit()
 
 
+async def seed_salas_default() -> None:
+    from sqlalchemy import func, select
+
+    from app.models.sala import Sala
+    from app.core.config import settings
+
+    async with AsyncSessionLocal() as db:
+        total = await db.scalar(select(func.count()).select_from(Sala))
+        if total and total > 0:
+            return
+        db.add_all(
+            [
+                Sala(
+                    nombre="Sala Actividades 1",
+                    tipo="actividad",
+                    capacidad=settings.CAPACIDAD_SALA_ACTIVIDAD,
+                ),
+                Sala(
+                    nombre="Sala Actividades 2",
+                    tipo="actividad",
+                    capacidad=settings.CAPACIDAD_SALA_ACTIVIDAD,
+                ),
+                Sala(
+                    nombre="Sala Máquinas",
+                    tipo="maquinas",
+                    capacidad=settings.CAPACIDAD_SALA_MAQUINAS,
+                ),
+            ]
+        )
+        await db.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_upload_dirs()
@@ -55,10 +87,55 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS categoria VARCHAR(50)"))
         await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS marca VARCHAR(100)"))
         await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS ubicacion VARCHAR(150)"))
+        await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS anios_vida_util INTEGER"))
+        await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS fecha_adquisicion DATE"))
+        await conn.execute(text("ALTER TABLE pagos ADD COLUMN IF NOT EXISTS inscripcion_id INTEGER REFERENCES inscripciones(id)"))
+        await conn.execute(text("ALTER TABLE inscripciones ADD COLUMN IF NOT EXISTS pago_expira_en TIMESTAMPTZ"))
         await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS descripcion VARCHAR(500)"))
-        await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS dia_semana VARCHAR(20)"))
+        await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS dia_semana VARCHAR(80)"))
+        await conn.execute(text("ALTER TABLE actividades ALTER COLUMN dia_semana TYPE VARCHAR(80)"))
         await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS hora_inicio VARCHAR(10)"))
         await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS hora_fin VARCHAR(10)"))
+        await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS sala_id INTEGER REFERENCES salas(id)"))
+        await conn.execute(text("ALTER TABLE rutinas ADD COLUMN IF NOT EXISTS plantilla_id INTEGER REFERENCES rutinas(id)"))
+        await conn.execute(text("ALTER TABLE rutinas ADD COLUMN IF NOT EXISTS notas_asignacion VARCHAR(500)"))
+        await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS vigencia_tipo VARCHAR(20) DEFAULT 'mes'"))
+        await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS vigencia_inicio DATE"))
+        await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS vigencia_fin DATE"))
+        await conn.execute(
+            text(
+                """
+                UPDATE actividades SET
+                  vigencia_tipo = COALESCE(vigencia_tipo, 'mes'),
+                  vigencia_inicio = COALESCE(vigencia_inicio, DATE_TRUNC('month', CURRENT_DATE)::date),
+                  vigencia_fin = COALESCE(
+                    vigencia_fin,
+                    (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::date
+                  )
+                WHERE vigencia_inicio IS NULL OR vigencia_fin IS NULL
+                """
+            )
+        )
+        await conn.execute(text("ALTER TABLE asignaciones_instructor ADD COLUMN IF NOT EXISTS turno VARCHAR(10)"))
+        await conn.execute(text("ALTER TABLE asignaciones_instructor ADD COLUMN IF NOT EXISTS vigencia_tipo VARCHAR(20) DEFAULT 'mes'"))
+        await conn.execute(text("ALTER TABLE asignaciones_instructor ADD COLUMN IF NOT EXISTS vigencia_inicio DATE"))
+        await conn.execute(text("ALTER TABLE asignaciones_instructor ADD COLUMN IF NOT EXISTS vigencia_fin DATE"))
+        await conn.execute(text("ALTER TABLE asignaciones_instructor ALTER COLUMN fecha DROP NOT NULL"))
+        await conn.execute(
+            text(
+                """
+                UPDATE asignaciones_instructor SET
+                  vigencia_tipo = COALESCE(vigencia_tipo, 'mes'),
+                  vigencia_inicio = COALESCE(vigencia_inicio, COALESCE(fecha, DATE_TRUNC('month', CURRENT_DATE)::date)),
+                  vigencia_fin = COALESCE(
+                    vigencia_fin,
+                    (DATE_TRUNC('month', COALESCE(fecha, CURRENT_DATE)) + INTERVAL '1 month' - INTERVAL '1 day')::date
+                  ),
+                  fecha = COALESCE(fecha, vigencia_inicio)
+                WHERE vigencia_inicio IS NULL OR vigencia_fin IS NULL
+                """
+            )
+        )
         await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'estudiante'"))
         await conn.execute(text("UPDATE usuarios SET rol = 'admin' WHERE es_admin = true"))
         await conn.execute(
@@ -83,6 +160,7 @@ async def lifespan(app: FastAPI):
             )
         )
     await seed_ejercicios_default()
+    await seed_salas_default()
     async with AsyncSessionLocal() as db:
         from app.services.notificacion_service import NotificacionService
         await NotificacionService(db).procesar_alertas_vencimiento()

@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
+import { UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
-import { estudiantesApi, ejerciciosApi, instructoresApi, rutinasApi } from '@/api/services'
+import { estudiantesApi, ejerciciosApi, rutinasApi } from '@/api/services'
 import type { Rutina } from '@/types'
 import { DeleteConfirmDialog } from '@/components/crud/DeleteConfirmDialog'
 import { DetailGrid } from '@/components/crud/DetailGrid'
 import { PageHeader } from '@/components/crud/PageHeader'
 import { RowActions } from '@/components/crud/RowActions'
+import { OBJETIVOS_RUTINA, objetivoLabel } from '@/constants/objetivos'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,21 +37,12 @@ type ModalMode = 'create' | 'edit' | 'view' | null
 const selectClassName =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
-const OBJETIVOS = [
-  { value: 'abdomen', label: 'Abdomen / core' },
-  { value: 'hipertrofia', label: 'Hipertrofia' },
-  { value: 'fuerza', label: 'Fuerza' },
-  { value: 'resistencia', label: 'Resistencia' },
-  { value: 'perdida_peso', label: 'Pérdida de peso' },
-  { value: 'flexibilidad', label: 'Flexibilidad' },
-  { value: 'general', label: 'General' },
-]
-
 export function RutinasPage() {
   const qc = useQueryClient()
   const [mode, setMode] = useState<ModalMode>(null)
   const [selected, setSelected] = useState<Rutina | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [assignRow, setAssignRow] = useState<Rutina | null>(null)
   const [objetivoFiltro, setObjetivoFiltro] = useState('')
   const [ejercicioConfig, setEjercicioConfig] = useState<
     Record<number, { series: number; repeticiones: string }>
@@ -63,22 +56,8 @@ export function RutinasPage() {
   const { data: estudiantes = [] } = useQuery({
     queryKey: ['estudiantes'],
     queryFn: () => estudiantesApi.list().then((r) => r.data),
+    enabled: assignRow !== null,
   })
-
-  const { data: instructores = [] } = useQuery({
-    queryKey: ['instructores'],
-    queryFn: () => instructoresApi.list().then((r) => r.data),
-  })
-
-  const estudianteNombre = useMemo(
-    () => new Map(estudiantes.map((e) => [e.id, e.nombre])),
-    [estudiantes]
-  )
-
-  const instructorNombre = useMemo(
-    () => new Map(instructores.map((i) => [i.id, i.nombre])),
-    [instructores]
-  )
 
   const { data: ejercicios = [] } = useQuery({
     queryKey: ['ejercicios', objetivoFiltro],
@@ -102,9 +81,6 @@ export function RutinasPage() {
       setEjercicioConfig({})
     }
   }, [mode, selected])
-
-  const objetivoLabel = (value?: string | null) =>
-    OBJETIVOS.find((o) => o.value === value)?.label ?? value ?? '—'
 
   const openCreate = () => {
     setSelected(null)
@@ -138,18 +114,12 @@ export function RutinasPage() {
     }))
   }
 
-  const nombreEstudiante = (id?: number | null) =>
-    id ? estudianteNombre.get(id) ?? `Estudiante #${id}` : '—'
-
-  const nombreInstructor = (id?: number | null) =>
-    id ? instructorNombre.get(id) ?? `Instructor #${id}` : '—'
-
   const createMut = useMutation({
     mutationFn: (body: Record<string, unknown>) => rutinasApi.create(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rutinas'] })
       setMode(null)
-      toast.success('Rutina creada')
+      toast.success('Plantilla de rutina creada')
     },
     onError: (e) => toast.error(getErrorMessage(e)),
   })
@@ -166,6 +136,17 @@ export function RutinasPage() {
     onError: (e) => toast.error(getErrorMessage(e)),
   })
 
+  const assignMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: { estudiante_id: number; notas_asignacion?: string } }) =>
+      rutinasApi.asignar(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rutinas'] })
+      setAssignRow(null)
+      toast.success('Rutina asignada al estudiante')
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
   const deleteMut = useMutation({
     mutationFn: (id: number) => rutinasApi.delete(id),
     onSuccess: () => {
@@ -178,20 +159,20 @@ export function RutinasPage() {
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!objetivoFiltro) {
+      toast.error('Selecciona un objetivo para la rutina')
+      return
+    }
     const fd = new FormData(e.currentTarget)
     const body: Record<string, unknown> = {
       nombre: fd.get('nombre') as string,
-      objetivo: objetivoFiltro || null,
+      objetivo: objetivoFiltro,
       ejercicios: Object.entries(ejercicioConfig).map(([id, cfg]) => ({
         ejercicio_id: Number(id),
         series: cfg.series,
         repeticiones: cfg.repeticiones,
       })),
     }
-    const est = fd.get('estudiante_id') as string
-    if (est) body.estudiante_id = Number(est)
-    const inst = fd.get('instructor_id') as string
-    if (inst) body.instructor_id = Number(inst)
 
     if (mode === 'edit' && selected) {
       updateMut.mutate({ id: selected.id, body })
@@ -200,19 +181,37 @@ export function RutinasPage() {
     }
   }
 
+  const onAssign = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!assignRow) return
+    const fd = new FormData(e.currentTarget)
+    const estudianteId = Number(fd.get('estudiante_id'))
+    if (!estudianteId) {
+      toast.error('Selecciona un estudiante')
+      return
+    }
+    assignMut.mutate({
+      id: assignRow.id,
+      body: {
+        estudiante_id: estudianteId,
+        notas_asignacion: (fd.get('notas_asignacion') as string) || undefined,
+      },
+    })
+  }
+
   return (
     <>
       <PageHeader
         title="Rutinas"
-        description="Planes de entrenamiento"
+        description="Plantillas por objetivo (definición, ganancia muscular, etc.). Solo admin o instructor las crea; luego se asignan al estudiante según su evaluación."
         onCreate={openCreate}
-        createLabel="Nueva rutina"
+        createLabel="Nueva plantilla"
       />
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Listado</CardTitle>
-          <CardDescription>{data.length} rutina(s)</CardDescription>
+          <CardTitle>Plantillas disponibles</CardTitle>
+          <CardDescription>{data.length} plantilla(s)</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -223,8 +222,7 @@ export function RutinasPage() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Objetivo</TableHead>
-                  <TableHead>Estudiante</TableHead>
-                  <TableHead>Instructor</TableHead>
+                  <TableHead>Creada por</TableHead>
                   <TableHead>Ejercicios</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
@@ -234,18 +232,28 @@ export function RutinasPage() {
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.nombre}</TableCell>
                     <TableCell>{objetivoLabel(r.objetivo)}</TableCell>
-                    <TableCell>{nombreEstudiante(r.estudiante_id)}</TableCell>
-                    <TableCell>{nombreInstructor(r.instructor_id)}</TableCell>
+                    <TableCell>{r.instructor_nombre ?? 'Administración'}</TableCell>
                     <TableCell>{r.ejercicios?.length ?? 0}</TableCell>
                     <TableCell className="text-right">
-                      <RowActions
-                        onView={() => {
-                          setSelected(r)
-                          setMode('view')
-                        }}
-                        onEdit={() => openEdit(r)}
-                        onDelete={() => setDeleteId(r.id)}
-                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAssignRow(r)}
+                        >
+                          <UserPlus className="mr-1 h-4 w-4" />
+                          Asignar
+                        </Button>
+                        <RowActions
+                          onView={() => {
+                            setSelected(r)
+                            setMode('view')
+                          }}
+                          onEdit={() => openEdit(r)}
+                          onDelete={() => setDeleteId(r.id)}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -258,7 +266,7 @@ export function RutinasPage() {
       <Dialog open={mode === 'create' || mode === 'edit'} onOpenChange={() => setMode(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{mode === 'edit' ? 'Editar rutina' : 'Nueva rutina'}</DialogTitle>
+            <DialogTitle>{mode === 'edit' ? 'Editar plantilla' : 'Nueva plantilla de rutina'}</DialogTitle>
           </DialogHeader>
           <form id="rut-form" onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -274,9 +282,10 @@ export function RutinasPage() {
                 value={objetivoFiltro}
                 onChange={(e) => setObjetivoFiltro(e.target.value)}
                 className={selectClassName}
+                required
               >
                 <option value="">Seleccionar objetivo…</option>
-                {OBJETIVOS.map((o) => (
+                {OBJETIVOS_RUTINA.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -297,16 +306,16 @@ export function RutinasPage() {
                   </p>
                 ) : (
                   ejercicios.map((ej) => {
-                    const selected = !!ejercicioConfig[ej.id]
+                    const checked = !!ejercicioConfig[ej.id]
                     return (
                       <div
                         key={ej.id}
-                        className={`rounded-md border p-2 ${selected ? 'border-primary/40 bg-primary/5' : 'border-transparent'}`}
+                        className={`rounded-md border p-2 ${checked ? 'border-primary/40 bg-primary/5' : 'border-transparent'}`}
                       >
                         <label className="flex cursor-pointer items-start gap-3">
                           <input
                             type="checkbox"
-                            checked={selected}
+                            checked={checked}
                             onChange={() => toggleEjercicio(ej.id)}
                             className="mt-1 h-4 w-4 rounded border-input"
                             aria-label={`Seleccionar ${ej.nombre}`}
@@ -325,7 +334,7 @@ export function RutinasPage() {
                             </span>
                           </span>
                         </label>
-                        {selected && (
+                        {checked && (
                           <div className="mt-2 ml-7 flex gap-2">
                             <div className="space-y-1">
                               <Label className="text-xs">Series</Label>
@@ -357,45 +366,6 @@ export function RutinasPage() {
                   })
                 )}
               </div>
-              {Object.keys(ejercicioConfig).length > 0 && (
-                <p className="text-xs text-primary">
-                  {Object.keys(ejercicioConfig).length} ejercicio(s) seleccionado(s)
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="estudiante_id">Estudiante (opcional)</Label>
-              <select
-                id="estudiante_id"
-                name="estudiante_id"
-                aria-label="Estudiante"
-                defaultValue={selected?.estudiante_id ?? ''}
-                className={selectClassName}
-              >
-                <option value="">Sin asignar</option>
-                {estudiantes.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instructor_id">Instructor (opcional)</Label>
-              <select
-                id="instructor_id"
-                name="instructor_id"
-                aria-label="Instructor"
-                defaultValue={selected?.instructor_id ?? ''}
-                className={selectClassName}
-              >
-                <option value="">Sin asignar</option>
-                {instructores.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.nombre}
-                  </option>
-                ))}
-              </select>
             </div>
           </form>
           <DialogFooter>
@@ -409,10 +379,60 @@ export function RutinasPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={assignRow !== null} onOpenChange={() => setAssignRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Asignar rutina a estudiante</DialogTitle>
+          </DialogHeader>
+          {assignRow && (
+            <form id="assign-form" onSubmit={onAssign} className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Plantilla: <strong>{assignRow.nombre}</strong> · {objetivoLabel(assignRow.objetivo)}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="estudiante_id">Estudiante</Label>
+                <select
+                  id="estudiante_id"
+                  name="estudiante_id"
+                  required
+                  className={selectClassName}
+                  aria-label="Estudiante"
+                >
+                  <option value="">Seleccionar estudiante…</option>
+                  {estudiantes.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notas_asignacion">Notas de evaluación (opcional)</Label>
+                <textarea
+                  id="notas_asignacion"
+                  name="notas_asignacion"
+                  placeholder="Ej.: evaluación inicial, objetivo definición, restricciones…"
+                  rows={3}
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </form>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignRow(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="assign-form" disabled={assignMut.isPending}>
+              Asignar rutina
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={mode === 'view'} onOpenChange={() => setMode(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Detalle de rutina</DialogTitle>
+            <DialogTitle>Detalle de plantilla</DialogTitle>
           </DialogHeader>
           {selected && (
             <>
@@ -421,8 +441,7 @@ export function RutinasPage() {
                   { label: 'ID', value: selected.id },
                   { label: 'Nombre', value: selected.nombre },
                   { label: 'Objetivo', value: objetivoLabel(selected.objetivo) },
-                  { label: 'Estudiante', value: nombreEstudiante(selected.estudiante_id) },
-                  { label: 'Instructor', value: nombreInstructor(selected.instructor_id) },
+                  { label: 'Creada por', value: selected.instructor_nombre ?? 'Administración' },
                   { label: 'Creada', value: new Date(selected.created_at).toLocaleString() },
                 ]}
               />
@@ -431,7 +450,10 @@ export function RutinasPage() {
                   <p className="text-sm font-medium">Ejercicios incluidos</p>
                   <ul className="space-y-2 text-sm">
                     {selected.ejercicios.map((ej) => (
-                      <li key={ej.ejercicio_id} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2">
+                      <li
+                        key={ej.ejercicio_id}
+                        className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2"
+                      >
                         <div>
                           <span className="font-medium">{ej.nombre}</span>
                           {(ej.series || ej.repeticiones) && (
@@ -454,7 +476,14 @@ export function RutinasPage() {
             <Button variant="outline" onClick={() => setMode(null)}>
               Cerrar
             </Button>
-            {selected && <Button onClick={() => openEdit(selected)}>Editar</Button>}
+            {selected && (
+              <>
+                <Button variant="outline" onClick={() => setAssignRow(selected)}>
+                  Asignar
+                </Button>
+                <Button onClick={() => openEdit(selected)}>Editar</Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FormEvent, useMemo, useState } from 'react'
-import { Copy, KeyRound, Shield } from 'lucide-react'
+import { Check, Copy, KeyRound, Mail, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { usuariosApi } from '@/api/services'
-import type { UsuarioAdmin } from '@/types'
+import type { ResetPasswordResult, UsuarioAdmin } from '@/types'
 import { PageHeader } from '@/components/crud/PageHeader'
 import { RowActions } from '@/components/crud/RowActions'
 import { Badge } from '@/components/ui/badge'
@@ -53,7 +53,7 @@ export function UsuariosPage() {
   const [openCreate, setOpenCreate] = useState(false)
   const [editUser, setEditUser] = useState<UsuarioAdmin | null>(null)
   const [resetUser, setResetUser] = useState<UsuarioAdmin | null>(null)
-  const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [resetResult, setResetResult] = useState<ResetPasswordResult | null>(null)
   const [filtroRol, setFiltroRol] = useState('')
   const [filtroActivo, setFiltroActivo] = useState<'' | 'true' | 'false'>('')
 
@@ -104,7 +104,7 @@ export function UsuariosPage() {
       generar_temporal: boolean
     }) => usuariosApi.resetPassword(id, { password_nueva, generar_temporal }),
     onSuccess: (res) => {
-      setTempPassword(res.data.password_temporal ?? null)
+      setResetResult(res.data)
       toast.success(res.data.mensaje)
     },
     onError: (e) => toast.error(getErrorMessage(e)),
@@ -150,8 +150,8 @@ export function UsuariosPage() {
   }
 
   const copyPassword = async () => {
-    if (!tempPassword) return
-    await navigator.clipboard.writeText(tempPassword)
+    if (!resetResult?.password_temporal) return
+    await navigator.clipboard.writeText(resetResult.password_temporal)
     toast.success('Contraseña copiada')
   }
 
@@ -248,7 +248,7 @@ export function UsuariosPage() {
                               size="sm"
                               onClick={() => {
                                 setResetUser(u)
-                                setTempPassword(null)
+                                setResetResult(null)
                               }}
                             >
                               <KeyRound className="h-4 w-4 shrink-0" />
@@ -382,7 +382,7 @@ export function UsuariosPage() {
         onOpenChange={(v) => {
           if (!v) {
             setResetUser(null)
-            setTempPassword(null)
+            setResetResult(null)
           }
         }}
       >
@@ -395,26 +395,46 @@ export function UsuariosPage() {
               <p className="text-sm text-muted-foreground">
                 Usuario: <strong>{resetUser.nombre}</strong> ({resetUser.email})
               </p>
-              {tempPassword ? (
+              {resetResult ? (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                  <p className="text-sm font-medium">Contraseña temporal generada:</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <code className="flex-1 rounded bg-muted px-3 py-2 font-mono text-lg">
-                      {tempPassword}
-                    </code>
-                    <Button type="button" variant="outline" size="icon" onClick={copyPassword}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Compártela con el usuario. Debería cambiarla al iniciar sesión.
-                  </p>
+                  {resetResult.enviado_email ? (
+                    <>
+                      <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                        <Mail className="h-4 w-4" />
+                        Contraseña enviada al correo
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Se envió una contraseña temporal a <strong>{resetUser.email}</strong>.
+                        El usuario debe revisar su bandeja de entrada (y spam).
+                      </p>
+                    </>
+                  ) : resetResult.password_temporal ? (
+                    <>
+                      <p className="text-sm font-medium">Contraseña temporal generada:</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-3 py-2 font-mono text-lg">
+                          {resetResult.password_temporal}
+                        </code>
+                        <Button type="button" variant="outline" size="icon" onClick={copyPassword}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        El correo no está configurado. Comparte la clave manualmente con el usuario.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Check className="h-4 w-4 text-primary" />
+                      {resetResult.mensaje}
+                    </div>
+                  )}
                   <DialogFooter className="mt-4">
                     <Button
                       type="button"
                       onClick={() => {
                         setResetUser(null)
-                        setTempPassword(null)
+                        setResetResult(null)
                       }}
                     >
                       Listo

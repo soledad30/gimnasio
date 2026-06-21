@@ -6,6 +6,7 @@ import { getErrorMessage, getMediaUrl } from '@/api/client'
 import { maquinasApi } from '@/api/services'
 import type { Maquina } from '@/types'
 import { MaquinaFoto } from '@/components/maquinas/MaquinaFoto'
+import { MantenimientoMaquinaDialog } from '@/components/maquinas/MantenimientoMaquinaDialog'
 import { DeleteConfirmDialog } from '@/components/crud/DeleteConfirmDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -73,6 +74,8 @@ export function MaquinasPage() {
   const [submitting, setSubmitting] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
+  const [mantMaquina, setMantMaquina] = useState<Maquina | null>(null)
+  const [mantDialogOpen, setMantDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!photoFile) {
@@ -165,11 +168,22 @@ export function MaquinasPage() {
     setMode('edit')
   }
 
-  const marcarMantenimiento = (m: Maquina) => {
-    updateMut.mutate({
-      id: m.id,
-      body: { estado_maquina: 'mantenimiento' },
-    })
+  const abrirMantenimiento = async (m: Maquina) => {
+    if (m.estado_maquina !== 'mantenimiento') {
+      try {
+        await updateMut.mutateAsync({
+          id: m.id,
+          body: { estado_maquina: 'mantenimiento' },
+        })
+        const actualizada = { ...m, estado_maquina: 'mantenimiento' }
+        setMantMaquina(actualizada)
+      } catch {
+        return
+      }
+    } else {
+      setMantMaquina(m)
+    }
+    setMantDialogOpen(true)
   }
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -177,14 +191,20 @@ export function MaquinasPage() {
     setSubmitting(true)
     try {
       const fd = new FormData(e.currentTarget)
+      const estado = fd.get('estado_maquina') as string
       const body: Record<string, unknown> = {
         nombre: fd.get('nombre'),
-        codigo: fd.get('codigo') || null,
         descripcion: fd.get('descripcion') || null,
         categoria: fd.get('categoria') || null,
         marca: fd.get('marca') || null,
         ubicacion: fd.get('ubicacion') || null,
-        estado_maquina: fd.get('estado_maquina'),
+        estado_maquina: estado,
+      }
+
+      if (mode === 'create') {
+        body.anios_vida_util = Number(fd.get('anios_vida_util'))
+        const fechaAdq = fd.get('fecha_adquisicion') as string
+        if (fechaAdq) body.fecha_adquisicion = fechaAdq
       }
 
       if (photoFile) {
@@ -196,6 +216,10 @@ export function MaquinasPage() {
 
       if (mode === 'edit' && selected) {
         await updateMut.mutateAsync({ id: selected.id, body })
+        if (estado === 'mantenimiento') {
+          setMantMaquina({ ...selected, ...body, estado_maquina: estado } as Maquina)
+          setMantDialogOpen(true)
+        }
       } else {
         await createMut.mutateAsync(body)
       }
@@ -275,83 +299,91 @@ export function MaquinasPage() {
                   key={m.id}
                   className="overflow-hidden border-border/60 transition-colors hover:border-primary/30"
                 >
-                  <CardContent className="flex gap-3 p-4">
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        {m.categoria ? (
-                          <Badge
-                            variant="outline"
-                            className={cn('border text-xs', categoriaStyle(m.categoria))}
-                          >
-                            {categoriaLabel(m.categoria)}
-                          </Badge>
-                        ) : (
-                          <span />
-                        )}
-                        <Badge variant={estado.variant} className="shrink-0 text-xs">
-                          {estado.label}
+                  <CardContent className="p-4">
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      {m.categoria ? (
+                        <Badge
+                          variant="outline"
+                          className={cn('border text-xs', categoriaStyle(m.categoria))}
+                        >
+                          {categoriaLabel(m.categoria)}
                         </Badge>
-                      </div>
-                      <h3 className="text-base font-semibold leading-tight">{m.nombre}</h3>
-                      <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        {m.marca && (
-                          <div>
-                            <dt className="inline font-medium text-foreground">Marca: </dt>
-                            <dd className="inline">{m.marca}</dd>
-                          </div>
-                        )}
-                        {m.ubicacion && (
-                          <div>
-                            <dt className="inline font-medium text-foreground">Ubicación: </dt>
-                            <dd className="inline">{m.ubicacion}</dd>
-                          </div>
-                        )}
-                        {m.codigo && (
-                          <div>
-                            <dt className="inline font-medium text-foreground">Código: </dt>
-                            <dd className="inline font-mono">{m.codigo}</dd>
-                          </div>
-                        )}
-                      </dl>
-                      <div className="mt-auto flex flex-wrap gap-2 pt-3">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={() => {
-                            setSelected(m)
-                            setMode('view')
-                          }}
-                        >
-                          Detalle
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={() => marcarMantenimiento(m)}
-                          disabled={updateMut.isPending}
-                        >
-                          Mant.
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 text-xs"
-                          onClick={() => openEdit(m)}
-                        >
-                          Editar
-                        </Button>
-                      </div>
+                      ) : (
+                        <span />
+                      )}
+                      <Badge variant={estado.variant} className="shrink-0 text-xs">
+                        {estado.label}
+                      </Badge>
                     </div>
-                    <MaquinaFoto
-                      nombre={m.nombre}
-                      fotourl={m.fotourl}
-                      className="h-full min-h-[130px] w-28 shrink-0 sm:w-32"
-                    />
+                    <div className="flex gap-3">
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <h3 className="text-base font-semibold leading-tight">{m.nombre}</h3>
+                        <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          {m.marca && (
+                            <div>
+                              <dt className="inline font-medium text-foreground">Marca: </dt>
+                              <dd className="inline">{m.marca}</dd>
+                            </div>
+                          )}
+                          {m.ubicacion && (
+                            <div>
+                              <dt className="inline font-medium text-foreground">Ubicación: </dt>
+                              <dd className="inline">{m.ubicacion}</dd>
+                            </div>
+                          )}
+                          {m.codigo && (
+                            <div>
+                              <dt className="inline font-medium text-foreground">Código: </dt>
+                              <dd className="inline font-mono">{m.codigo}</dd>
+                            </div>
+                          )}
+                          {m.anios_vida_util != null && (
+                            <div>
+                              <dt className="inline font-medium text-foreground">Vida útil: </dt>
+                              <dd className="inline">{m.anios_vida_util} años</dd>
+                            </div>
+                          )}
+                        </dl>
+                        <div className="mt-auto flex flex-wrap gap-2 pt-3">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              setSelected(m)
+                              setMode('view')
+                            }}
+                          >
+                            Detalle
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => abrirMantenimiento(m)}
+                            disabled={updateMut.isPending}
+                          >
+                            Mant.
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs"
+                            onClick={() => openEdit(m)}
+                          >
+                            Editar
+                          </Button>
+                        </div>
+                      </div>
+                      <MaquinaFoto
+                        nombre={m.nombre}
+                        fotourl={m.fotourl}
+                        className="h-28 w-28 shrink-0 self-start sm:h-32 sm:w-32"
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               )
@@ -408,11 +440,18 @@ export function MaquinasPage() {
               <Label htmlFor="nombre">Nombre</Label>
               <Input id="nombre" name="nombre" defaultValue={selected?.nombre} required />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            {mode === 'edit' && selected?.codigo && (
               <div className="space-y-2">
-                <Label htmlFor="codigo">Código</Label>
-                <Input id="codigo" name="codigo" defaultValue={selected?.codigo ?? ''} />
+                <Label htmlFor="codigo">Código (único)</Label>
+                <Input id="codigo" name="codigo" value={selected.codigo} readOnly disabled />
               </div>
+            )}
+            {mode === 'create' && (
+              <p className="text-xs text-muted-foreground">
+                El código se generará automáticamente al guardar (ej. GLU001, CAR002).
+              </p>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="categoria">Categoría</Label>
                 <select
@@ -430,7 +469,37 @@ export function MaquinasPage() {
                   ))}
                 </select>
               </div>
+              {mode === 'create' ? (
+                <div className="space-y-2">
+                  <Label htmlFor="anios_vida_util">Años de vida útil</Label>
+                  <Input
+                    id="anios_vida_util"
+                    name="anios_vida_util"
+                    type="number"
+                    min={1}
+                    max={50}
+                    defaultValue={10}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Estimación según manual o plan ISO 55000 (solo al registrar).
+                  </p>
+                </div>
+              ) : (
+                selected?.anios_vida_util != null && (
+                  <div className="space-y-2">
+                    <Label>Años de vida útil</Label>
+                    <Input value={selected.anios_vida_util} readOnly disabled />
+                  </div>
+                )
+              )}
             </div>
+            {mode === 'create' && (
+              <div className="space-y-2">
+                <Label htmlFor="fecha_adquisicion">Fecha de adquisición (opcional)</Label>
+                <Input id="fecha_adquisicion" name="fecha_adquisicion" type="date" />
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="marca">Marca</Label>
@@ -465,6 +534,10 @@ export function MaquinasPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-muted-foreground">
+                Si eliges &quot;Mantenimiento&quot;, al guardar se abrirá el formulario según el plan
+                ISO 55000.
+              </p>
             </div>
           </form>
           <DialogFooter>
@@ -520,6 +593,18 @@ export function MaquinasPage() {
                     <dd className="font-mono text-muted-foreground">{selected.codigo}</dd>
                   </div>
                 )}
+                {selected.anios_vida_util != null && (
+                  <div>
+                    <dt className="font-medium">Vida útil</dt>
+                    <dd className="text-muted-foreground">{selected.anios_vida_util} años</dd>
+                  </div>
+                )}
+                {selected.fecha_adquisicion && (
+                  <div>
+                    <dt className="font-medium">Adquisición</dt>
+                    <dd className="text-muted-foreground">{selected.fecha_adquisicion}</dd>
+                  </div>
+                )}
                 {selected.descripcion && (
                   <div>
                     <dt className="font-medium">Descripción</dt>
@@ -533,10 +618,28 @@ export function MaquinasPage() {
             <Button variant="outline" onClick={() => setMode(null)}>
               Cerrar
             </Button>
+            {selected && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setMode(null)
+                  abrirMantenimiento(selected)
+                }}
+              >
+                Registrar mantenimiento
+              </Button>
+            )}
             {selected && <Button onClick={() => openEdit(selected)}>Editar</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MantenimientoMaquinaDialog
+        maquina={mantMaquina}
+        open={mantDialogOpen}
+        onOpenChange={setMantDialogOpen}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['maquinas'] })}
+      />
 
       <DeleteConfirmDialog
         open={deleteId !== null}
