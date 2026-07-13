@@ -162,6 +162,14 @@ export function LoginPage() {
         </div>
 
         <div className="space-y-6">
+          <div className="flex justify-center">
+            <img
+              src="/branding/logo-gimnasio-uagrm.png"
+              alt="Gimnasio Universitario U.A.G.R.M."
+              className="h-36 w-auto max-w-[280px] rounded-lg object-contain shadow-md"
+            />
+          </div>
+
           <div className="space-y-4">
             <h2 className="text-3xl font-semibold leading-tight">
               Gestiona tu gimnasio con control total

@@ -74,6 +74,13 @@ export function RegisterPage() {
           </span>
         </div>
         <div className="space-y-4">
+          <div className="flex justify-center">
+            <img
+              src="/branding/logo-gimnasio-uagrm.png"
+              alt="Gimnasio Universitario U.A.G.R.M."
+              className="h-36 w-auto max-w-[280px] rounded-lg object-contain shadow-md"
+            />
+          </div>
           <h2 className="text-3xl font-semibold leading-tight">Únete al gimnasio</h2>
           <p className="max-w-md text-muted-foreground">
             Crea tu cuenta de estudiante para reservar clases, ver rutinas y recibir notificaciones.

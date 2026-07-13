@@ -312,9 +312,7 @@ export function StudentReservasPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Inscripciones y reservas</h1>
-          <p className="text-muted-foreground">
-            Membresías, actividades y sala de máquinas — con vigencia desde / hasta
-          </p>
+          
         </div>
         <Button
           onClick={() => setOpenInscripcion(true)}
@@ -349,10 +347,7 @@ export function StudentReservasPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Mis inscripciones</CardTitle>
-          <CardDescription>
-            Membresía de sala de máquinas (mensual, trimestral, anual…) e inscripciones de
-            actividades / pago mensual, con fecha desde y hasta
-          </CardDescription>
+          
         </CardHeader>
         <CardContent>
           {loadingIns || loadingMem ? (

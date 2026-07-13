@@ -271,8 +271,16 @@ class RutinaEjercicioItem(BaseModel):
 class RutinaEjercicioDetalle(BaseModel):
     ejercicio_id: int
     nombre: str
+    descripcion: Optional[str] = None
     con_maquina: bool
+    maquina_id: Optional[int] = None
     maquina_nombre: Optional[str] = None
+    maquina_codigo: Optional[str] = None
+    maquina_ubicacion: Optional[str] = None
+    maquina_descripcion: Optional[str] = None
+    maquina_fotourl: Optional[str] = None
+    fotourl: Optional[str] = None
+    videourl: Optional[str] = None
     grupo_muscular: Optional[str] = None
     series: Optional[int] = None
     repeticiones: Optional[str] = None

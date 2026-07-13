@@ -3,6 +3,7 @@ from app.api.v1.endpoints import (
     auth, usuarios, roles, estudiantes, instructores,
     acceso, membresias, pagos, rutinas, ejercicios, actividades,
     maquinas, reservas, inscripciones, notificaciones, reportes, salas, horarios, configuracion,
+    fichas_inscripcion,
 )
 
 api_router = APIRouter()
@@ -26,3 +27,4 @@ api_router.include_router(reportes.router,       prefix="/reportes",       tags=
 api_router.include_router(salas.router,          prefix="/salas",          tags=[" Salas"])
 api_router.include_router(horarios.router,       prefix="/horarios",       tags=[" Horarios"])
 api_router.include_router(configuracion.router,  prefix="/configuracion",  tags=[" Configuración"])
+api_router.include_router(fichas_inscripcion.router, prefix="/fichas-inscripcion", tags=[" Fichas inscripción"])

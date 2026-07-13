@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Activity, CalendarDays, CreditCard, Dumbbell, Nfc, Wrench } from 'lucide-react'
-import { estudiantesApi, membresiasApi, rutinasApi } from '@/api/services'
+import { Activity, CalendarDays, CreditCard, Dumbbell, FileText, Nfc, Wrench } from 'lucide-react'
+import { estudiantesApi, fichasInscripcionApi, membresiasApi, rutinasApi } from '@/api/services'
 import { useAuth } from '@/context/AuthContext'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,10 +27,17 @@ export function StudentHomePage() {
     queryFn: () => rutinasApi.mis().then((r) => r.data),
   })
 
+  const { data: fichaEstado } = useQuery({
+    queryKey: ['mi-ficha-estado'],
+    queryFn: () => fichasInscripcionApi.miEstado().then((r) => r.data),
+    retry: false,
+  })
+
   const membresiaActiva =
     membresia?.fecha_fin && membresia.fecha_fin >= new Date().toISOString().slice(0, 10)
 
   const quickLinks = [
+    { to: '/app/ficha-inscripcion', label: 'Mi ficha', icon: FileText, desc: 'Inscripción DUBSS-FR-03' },
     { to: '/app/acceso', label: 'Mi acceso', icon: Nfc, desc: 'QR y check-in' },
     { to: '/app/rutinas', label: 'Mi rutina', icon: Dumbbell, desc: `${rutinas.length} plan(es)` },
     { to: '/app/reservas', label: 'Mis reservas', icon: CalendarDays, desc: 'Clases reservadas' },
@@ -45,6 +53,19 @@ export function StudentHomePage() {
           {perfil?.carrera ? `Est. ${perfil.carrera}` : 'Portal del gimnasio'}
         </p>
       </div>
+
+      {(!fichaEstado?.tiene_ficha || fichaEstado.requiere_actualizacion) && (
+        <Alert variant={fichaEstado?.tiene_ficha ? 'destructive' : 'default'}>
+          <AlertDescription>
+            {!fichaEstado?.tiene_ficha
+              ? 'Debes completar tu ficha de inscripción para usar el gimnasio. '
+              : 'Tu ficha de inscripción requiere actualización. '}
+            <Link to="/app/ficha-inscripcion" className="font-medium underline">
+              Ir a mi ficha
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-primary/30">
         <CardHeader className="pb-2">

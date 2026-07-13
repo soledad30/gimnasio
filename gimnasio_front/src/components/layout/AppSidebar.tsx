@@ -9,6 +9,7 @@ import {
   CreditCard,
   DollarSign,
   Dumbbell,
+  FileText,
   KeyRound,
   ListChecks,
   LayoutDashboard,
@@ -49,6 +50,7 @@ const adminNav: NavItem[] = [
     ],
   },
   { to: '/admin/estudiantes', label: 'Estudiantes', icon: Users },
+  { to: '/admin/fichas-inscripcion', label: 'Fichas inscripción', icon: FileText },
   { to: '/admin/instructores', label: 'Entrenadores', icon: UserCog, roles: ['admin'] },
   { to: '/admin/horarios', label: 'Horarios y salas', icon: CalendarDays, roles: ['admin'] },
   { to: '/admin/actividades', label: 'Actividades', icon: Activity, roles: ['admin'] },
@@ -67,6 +69,7 @@ const adminNav: NavItem[] = [
 
 const studentNav: NavItem[] = [
   { to: '/app', label: 'Inicio', icon: LayoutDashboard },
+  { to: '/app/ficha-inscripcion', label: 'Mi ficha', icon: FileText },
   { to: '/app/acceso', label: 'Mi acceso', icon: Nfc },
   { to: '/app/rutinas', label: 'Mi rutina', icon: Dumbbell },
   { to: '/app/reservas', label: 'Mis reservas', icon: CalendarDays },

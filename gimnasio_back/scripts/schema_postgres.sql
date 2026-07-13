@@ -413,3 +413,54 @@ CREATE TABLE mantenimientos_maquina (
 );
 
 CREATE INDEX ix_mantenimientos_maquina_id ON mantenimientos_maquina (id);
+
+-- =============================================================================
+-- 22. fichas_inscripcion (DUBSS-FR-03)
+-- =============================================================================
+CREATE TABLE fichas_inscripcion (
+    id                                    SERIAL PRIMARY KEY,
+    estudiante_id                         INTEGER        NOT NULL REFERENCES estudiantes (id) ON DELETE CASCADE,
+    version                               INTEGER        NOT NULL DEFAULT 1,
+    vigente                               BOOLEAN        NOT NULL DEFAULT TRUE,
+    nombre                                VARCHAR(150)   NOT NULL,
+    cs                                    VARCHAR(100),
+    carrera                               VARCHAR(150),
+    domicilio                             VARCHAR(255),
+    email                                 VARCHAR(255)   NOT NULL,
+    telefono                              VARCHAR(20),
+    fecha_nacimiento                      DATE,
+    sexo                                  VARCHAR(1),
+    grupo_sanguineo                       VARCHAR(10),
+    altura_cm                             INTEGER,
+    peso_kg                               NUMERIC(5, 2),
+    mes_horario                           VARCHAR(100),
+    antecedentes_cardiovasculares         BOOLEAN        NOT NULL DEFAULT FALSE,
+    antecedentes_cardiovasculares_detalle VARCHAR(1000),
+    procedimientos_cardiovasculares       BOOLEAN        NOT NULL DEFAULT FALSE,
+    procedimientos_cardiovasculares_detalle VARCHAR(1000),
+    condiciones                           JSON           NOT NULL DEFAULT '{}'::json,
+    condiciones_detalle                   VARCHAR(2000),
+    intervencion_quirurgica               BOOLEAN        NOT NULL DEFAULT FALSE,
+    intervencion_quirurgica_detalle       VARCHAR(1000),
+    fracturas                             BOOLEAN        NOT NULL DEFAULT FALSE,
+    fracturas_detalle                     VARCHAR(1000),
+    sintomas_deportivos                   BOOLEAN        NOT NULL DEFAULT FALSE,
+    sintomas_deportivos_detalle           VARCHAR(2000),
+    acepta_reglamento                     BOOLEAN        NOT NULL DEFAULT FALSE,
+    declaracion_jurada                    BOOLEAN        NOT NULL DEFAULT FALSE,
+    firma_nombre                          VARCHAR(150)   NOT NULL,
+    firma_fecha                           DATE           NOT NULL,
+    firma_ci                              VARCHAR(100),
+    requiere_certificado_medico           BOOLEAN        NOT NULL DEFAULT FALSE,
+    certificado_medico_recibido           BOOLEAN        NOT NULL DEFAULT FALSE,
+    certificado_medico_url                VARCHAR(500),
+    fecha_vigencia_desde                  DATE           NOT NULL,
+    fecha_vigencia_hasta                  DATE           NOT NULL,
+    estado                                VARCHAR(30)    NOT NULL DEFAULT 'vigente',
+    created_by_usuario_id                 INTEGER REFERENCES usuarios (id),
+    created_at                            TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    updated_at                            TIMESTAMPTZ    NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_fichas_inscripcion_estudiante ON fichas_inscripcion (estudiante_id);
+CREATE INDEX idx_fichas_inscripcion_vigente ON fichas_inscripcion (estudiante_id, vigente);

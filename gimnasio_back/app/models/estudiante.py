@@ -36,3 +36,4 @@ class Estudiante(Base):
     reservas = relationship("Reserva", back_populates="estudiante")
     inscripciones = relationship("Inscripcion", back_populates="estudiante")
     rutinas = relationship("Rutina", back_populates="estudiante")
+    fichas_inscripcion = relationship("FichaInscripcion", back_populates="estudiante")

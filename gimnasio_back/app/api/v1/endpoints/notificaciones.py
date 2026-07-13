@@ -53,8 +53,11 @@ async def procesar_alertas_vencimiento(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    """Genera notificaciones automáticas de membresías por vencer o vencidas."""
-    return await NotificacionService(db).procesar_alertas_vencimiento()
+    """Genera notificaciones automáticas de membresías y fichas de inscripción."""
+    svc = NotificacionService(db)
+    membresias = await svc.procesar_alertas_vencimiento()
+    fichas = await svc.procesar_alertas_ficha_inscripcion(dias_aviso=15)
+    return {"membresias": membresias, "fichas_inscripcion": fichas}
 
 
 @router.get("/", response_model=List[NotificacionResponse])

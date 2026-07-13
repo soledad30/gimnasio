@@ -36,7 +36,6 @@ export function StudentActividadesPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Actividades disponibles</h1>
-          <p className="text-muted-foreground">Clases grupales con horario y cupos</p>
         </div>
         <div className="space-y-1">
           <Label htmlFor="fecha-consulta">Ver cupos para</Label>

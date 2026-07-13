@@ -22,12 +22,21 @@ def build_rutina_response(rutina: Rutina) -> RutinaResponse:
     ejercicios = []
     for assoc in rutina.ejercicios_assoc:
         ej = assoc.ejercicio
+        maq = ej.maquina
         ejercicios.append(
             RutinaEjercicioDetalle(
                 ejercicio_id=ej.id,
                 nombre=ej.nombre,
+                descripcion=ej.descripcion,
                 con_maquina=ej.con_maquina,
-                maquina_nombre=ej.maquina.nombre if ej.maquina else None,
+                maquina_id=ej.maquina_id,
+                maquina_nombre=maq.nombre if maq else None,
+                maquina_codigo=maq.codigo if maq else None,
+                maquina_ubicacion=maq.ubicacion if maq else None,
+                maquina_descripcion=maq.descripcion if maq else None,
+                maquina_fotourl=maq.fotourl if maq else None,
+                fotourl=ej.fotourl,
+                videourl=ej.videourl,
                 grupo_muscular=ej.grupo_muscular,
                 series=assoc.series,
                 repeticiones=assoc.repeticiones,

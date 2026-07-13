@@ -64,6 +64,8 @@ import { StudentReservasPage } from '../pages/student/StudentReservasPage'
 
 import { StudentRutinasPage } from '../pages/student/StudentRutinasPage'
 import { StudentAccesoPage } from '../pages/student/StudentAccesoPage'
+import { StudentFichaInscripcionPage } from '../pages/student/StudentFichaInscripcionPage'
+import { FichasInscripcionPage } from '../pages/admin/FichasInscripcionPage'
 
 const STAFF_ROLES: UserRol[] = ['admin', 'recepcion']
 
@@ -128,6 +130,7 @@ export function AppRoutes() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="estudiantes" element={<EstudiantesPage />} />
+        <Route path="fichas-inscripcion" element={<FichasInscripcionPage />} />
         <Route path="acceso" element={<AccesoPage />} />
         <Route path="reservas" element={<ReservasAdminPage />} />
         <Route path="membresias" element={<MembresiasPage />} />
@@ -245,6 +248,7 @@ export function AppRoutes() {
       >
         <Route index element={<StudentHomePage />} />
         <Route path="acceso" element={<StudentAccesoPage />} />
+        <Route path="ficha-inscripcion" element={<StudentFichaInscripcionPage />} />
         <Route path="reservas" element={<StudentReservasPage />} />
         <Route path="notificaciones" element={<StudentNotificacionesPage />} />
         <Route path="actividades" element={<StudentActividadesPage />} />

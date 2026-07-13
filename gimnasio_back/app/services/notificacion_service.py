@@ -80,6 +80,99 @@ class NotificacionService:
         await self.db.commit()
         return {"notificaciones_creadas": creadas, "fecha": hoy.isoformat()}
 
+    async def procesar_alertas_ficha_inscripcion(self, dias_aviso: int = 15) -> dict:
+        from app.models.ficha_inscripcion import FichaInscripcion
+
+        hoy = date.today()
+        limite = hoy + timedelta(days=dias_aviso)
+        creadas = 0
+
+        por_vencer = await self.db.execute(
+            select(FichaInscripcion).where(
+                FichaInscripcion.vigente.is_(True),
+                FichaInscripcion.fecha_vigencia_hasta >= hoy,
+                FichaInscripcion.fecha_vigencia_hasta <= limite,
+            )
+        )
+        for ficha in por_vencer.scalars().all():
+            titulo = "Ficha de inscripción por vencer"
+            if await self._ya_notificado(ficha.estudiante_id, titulo):
+                continue
+            dias_restantes = (ficha.fecha_vigencia_hasta - hoy).days
+            self.db.add(
+                Notificacion(
+                    estudiante_id=ficha.estudiante_id,
+                    fecha=hoy,
+                    titulo=titulo,
+                    mensaje=(
+                        f"Hola {ficha.nombre}, tu ficha de inscripción vence el "
+                        f"{ficha.fecha_vigencia_hasta} ({dias_restantes} día(s) restantes). "
+                        f"Actualízala en el portal para seguir accediendo al gimnasio."
+                    ),
+                    tipo="ficha_inscripcion",
+                    leida=False,
+                )
+            )
+            creadas += 1
+
+        vencidas = await self.db.execute(
+            select(FichaInscripcion).where(
+                FichaInscripcion.vigente.is_(True),
+                FichaInscripcion.fecha_vigencia_hasta < hoy,
+            )
+        )
+        for ficha in vencidas.scalars().all():
+            titulo = "Ficha de inscripción vencida"
+            if await self._ya_notificado(ficha.estudiante_id, titulo):
+                continue
+            self.db.add(
+                Notificacion(
+                    estudiante_id=ficha.estudiante_id,
+                    fecha=hoy,
+                    titulo=titulo,
+                    mensaje=(
+                        f"Hola {ficha.nombre}, tu ficha de inscripción venció el "
+                        f"{ficha.fecha_vigencia_hasta}. Completa una nueva ficha en el portal."
+                    ),
+                    tipo="ficha_inscripcion",
+                    leida=False,
+                )
+            )
+            creadas += 1
+
+        pendientes = await self.db.execute(
+            select(FichaInscripcion).where(
+                FichaInscripcion.vigente.is_(True),
+                FichaInscripcion.requiere_certificado_medico.is_(True),
+                FichaInscripcion.certificado_medico_recibido.is_(False),
+            )
+        )
+        for ficha in pendientes.scalars().all():
+            titulo = "Certificado médico pendiente"
+            if await self._ya_notificado(ficha.estudiante_id, titulo):
+                continue
+            extra = (
+                " Ya subiste un archivo; recepción lo validará pronto."
+                if ficha.certificado_medico_url
+                else " Preséntalo o súbelo en el portal dentro de 15 días."
+            )
+            self.db.add(
+                Notificacion(
+                    estudiante_id=ficha.estudiante_id,
+                    fecha=hoy,
+                    titulo=titulo,
+                    mensaje=(
+                        f"Hola {ficha.nombre}, tu ficha requiere certificado de aptitud física.{extra}"
+                    ),
+                    tipo="ficha_inscripcion",
+                    leida=False,
+                )
+            )
+            creadas += 1
+
+        await self.db.commit()
+        return {"notificaciones_creadas": creadas, "fecha": hoy.isoformat()}
+
     async def notificar_reserva(self, estudiante_id: int, actividad_nombre: str, fecha: date) -> None:
         self.db.add(
             Notificacion(

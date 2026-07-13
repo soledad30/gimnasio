@@ -15,6 +15,7 @@ from app.schemas.schemas import (
 )
 from app.services.base_service import BaseService
 from app.services.estudiante_service import EstudianteService, normalizar_codigo_acceso
+from app.services.ficha_inscripcion_service import FichaInscripcionService
 
 
 def _hora_int(now: datetime) -> int:
@@ -160,6 +161,11 @@ class AccesoService(BaseService[Acceso]):
                 f"Acceso denegado: {motivo}. "
                 "Paga membresía (máquinas) o inscripción de actividad para ingresar."
             )
+        elif estudiante and "ficha" in motivo_l:
+            mensaje = (
+                f"Acceso denegado: {motivo}. "
+                "Completa o actualiza tu ficha en el portal del estudiante."
+            )
         elif estudiante:
             mensaje = f"Acceso denegado: {motivo}"
         else:
@@ -226,7 +232,18 @@ class AccesoService(BaseService[Acceso]):
                 nfc_uid=nfc_uid,
             )
 
-        # 1) Primera vez del día → validar y registrar entrada
+        # 1) Primera vez del día → validar ficha de inscripción
+        ficha_ok, ficha_estado = await FichaInscripcionService(self.db).validar_acceso(estudiante.id)
+        if not ficha_ok:
+            return await self._registrar_denegado(
+                fecha_str=fecha_str,
+                hora_int=hora_int,
+                motivo=ficha_estado,
+                estudiante=estudiante,
+                nfc_uid=nfc_uid,
+            )
+
+        # 2) Primera vez del día → validar membresía/inscripción
         mem_ok, mem_estado = await self._membresia_activa(estudiante)
         _insc_ok, insc_estado, insc_maq, insc_act = await self._acceso_por_inscripcion(estudiante)
         acceso_maquinas = mem_ok or insc_maq

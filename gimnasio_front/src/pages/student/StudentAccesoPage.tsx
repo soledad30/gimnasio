@@ -2,8 +2,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { DoorOpen, Loader2, Nfc, QrCode, Smartphone } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
 import { getErrorMessage } from '@/api/client'
-import { accesoApi } from '@/api/services'
+import { accesoApi, fichasInscripcionApi } from '@/api/services'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,14 @@ export function StudentAccesoPage() {
     queryKey: ['mi-qr-acceso'],
     queryFn: () => accesoApi.miQr().then((r) => r.data),
   })
+
+  const { data: fichaEstado } = useQuery({
+    queryKey: ['mi-ficha-estado'],
+    queryFn: () => fichasInscripcionApi.miEstado().then((r) => r.data),
+    retry: false,
+  })
+
+  const fichaOk = fichaEstado?.tiene_ficha && fichaEstado.vigente
 
   const checkInMut = useMutation({
     mutationFn: () => accesoApi.checkIn().then((r) => r.data),
@@ -32,14 +41,25 @@ export function StudentAccesoPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Mi acceso al gym</h1>
-        <p className="text-muted-foreground">
-          Sin NFC en el celular puedes usar tu QR o el botón de check-in
-        </p>
+        
       </div>
 
       {error && (
         <Alert variant="destructive">
           <AlertDescription>No se pudo cargar tu código de acceso</AlertDescription>
+        </Alert>
+      )}
+
+      {!fichaOk && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {!fichaEstado?.tiene_ficha
+              ? 'Completa tu ficha de inscripción antes de usar el gimnasio. '
+              : 'Tu ficha de inscripción no está vigente. '}
+            <Link to="/app/ficha-inscripcion" className="font-medium underline">
+              Ir a mi ficha
+            </Link>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -82,9 +102,7 @@ export function StudentAccesoPage() {
               <Smartphone className="h-5 w-5 text-primary" />
               Check-in desde la app
             </CardTitle>
-            <CardDescription>
-              Registra tu entrada o salida con un toque (alterna automáticamente)
-            </CardDescription>
+           
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
@@ -98,7 +116,7 @@ export function StudentAccesoPage() {
               className="w-full"
               size="lg"
               onClick={() => checkInMut.mutate()}
-              disabled={checkInMut.isPending || isLoading}
+              disabled={checkInMut.isPending || isLoading || !fichaOk}
             >
               {checkInMut.isPending ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />

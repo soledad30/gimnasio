@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Dumbbell, Target } from 'lucide-react'
+import { ChevronRight, Dumbbell, Target } from 'lucide-react'
 import { rutinasApi } from '@/api/services'
+import {
+  EjercicioRutinaDialog,
+  useEjercicioRutinaDialog,
+} from '@/components/rutinas/EjercicioRutinaDialog'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,6 +20,8 @@ const OBJETIVOS: Record<string, string> = {
 }
 
 export function StudentRutinasPage() {
+  const dialog = useEjercicioRutinaDialog()
+
   const { data = [], isLoading } = useQuery({
     queryKey: ['mis-rutinas'],
     queryFn: () => rutinasApi.mis().then((r) => r.data),
@@ -25,7 +31,7 @@ export function StudentRutinasPage() {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Mi rutina</h1>
-        <p className="text-muted-foreground">Planes de entrenamiento asignados por tu instructor</p>
+        
       </div>
 
       {isLoading ? (
@@ -65,27 +71,36 @@ export function StudentRutinasPage() {
                 {r.ejercicios && r.ejercicios.length > 0 ? (
                   <ol className="space-y-3">
                     {r.ejercicios.map((ej, idx) => (
-                      <li
-                        key={ej.ejercicio_id}
-                        className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium">{ej.nombre}</p>
-                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {ej.grupo_muscular && <span>{ej.grupo_muscular}</span>}
-                            {ej.series && ej.repeticiones && (
-                              <span className="font-medium text-foreground">
-                                {ej.series} series × {ej.repeticiones}
-                              </span>
+                      <li key={ej.ejercicio_id}>
+                        <button
+                          type="button"
+                          onClick={() => dialog.openEjercicio(ej)}
+                          className="flex w-full items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">{ej.nombre}</p>
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              {ej.grupo_muscular && <span>{ej.grupo_muscular}</span>}
+                              {ej.series && ej.repeticiones && (
+                                <span className="font-medium text-foreground">
+                                  {ej.series} series × {ej.repeticiones}
+                                </span>
+                              )}
+                            </div>
+                            {(ej.descripcion || ej.videourl || ej.fotourl) && (
+                              <p className="mt-1 text-xs text-primary">Ver instrucciones</p>
                             )}
                           </div>
-                        </div>
-                        <Badge variant="outline" className="shrink-0">
-                          {ej.con_maquina ? ej.maquina_nombre || 'Máquina' : 'Sin máquina'}
-                        </Badge>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <Badge variant="outline">
+                              {ej.con_maquina ? ej.maquina_nombre || 'Máquina' : 'Sin máquina'}
+                            </Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </button>
                       </li>
                     ))}
                   </ol>
@@ -97,6 +112,12 @@ export function StudentRutinasPage() {
           ))}
         </div>
       )}
+
+      <EjercicioRutinaDialog
+        ejercicio={dialog.ejercicio}
+        open={dialog.open}
+        onOpenChange={dialog.onOpenChange}
+      />
     </>
   )
 }

@@ -37,6 +37,10 @@ import type {
   UsuarioAdmin,
   ConfiguracionOrganizacion,
   VentanaInscripcion,
+  FichaInscripcion,
+  FichaInscripcionResumen,
+  FichaEstado,
+  FichaInscripcionCreate,
 } from '../types'
 
 export interface RegisterData {
@@ -319,4 +323,31 @@ export const membresiasApi = {
   delete: (id: number) => api.delete(`/membresias/${id}`),
   byEstudiante: (estudianteId: number) =>
     api.get<Membresia>(`/membresias/estudiante/${estudianteId}`),
+}
+
+export const fichasInscripcionApi = {
+  miEstado: () => api.get<FichaEstado>('/fichas-inscripcion/mi-ficha/estado'),
+  miFicha: () => api.get<FichaInscripcion>('/fichas-inscripcion/mi-ficha'),
+  miHistorial: () => api.get<FichaInscripcion[]>('/fichas-inscripcion/mi-ficha/historial'),
+  crear: (data: FichaInscripcionCreate) =>
+    api.post<FichaInscripcion>('/fichas-inscripcion/mi-ficha', data),
+  list: (params?: { estado?: string }) =>
+    api.get<FichaInscripcionResumen[]>('/fichas-inscripcion/', { params }),
+  porEstudiante: (estudianteId: number) =>
+    api.get<FichaInscripcion>(`/fichas-inscripcion/estudiante/${estudianteId}`),
+  historialEstudiante: (estudianteId: number) =>
+    api.get<FichaInscripcion[]>(`/fichas-inscripcion/estudiante/${estudianteId}/historial`),
+  marcarCertificado: (fichaId: number, recibido = true) =>
+    api.patch<FichaInscripcion>(`/fichas-inscripcion/${fichaId}/certificado`, { recibido }),
+  subirCertificado: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post<FichaInscripcion>('/fichas-inscripcion/mi-ficha/certificado', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  exportarMiFicha: () =>
+    api.get('/fichas-inscripcion/mi-ficha/export', { responseType: 'blob' }),
+  exportar: (fichaId: number) =>
+    api.get(`/fichas-inscripcion/${fichaId}/export`, { responseType: 'blob' }),
 }

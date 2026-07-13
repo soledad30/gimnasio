@@ -30,9 +30,7 @@ export function StudentMaquinasPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Máquinas del gimnasio</h1>
-        <p className="text-muted-foreground">
-          Reconoce el equipamiento por su foto antes de usarlo
-        </p>
+        
       </div>
 
       {isLoading ? (

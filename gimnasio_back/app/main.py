@@ -255,6 +255,7 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as db:
         from app.services.notificacion_service import NotificacionService
         await NotificacionService(db).procesar_alertas_vencimiento()
+        await NotificacionService(db).procesar_alertas_ficha_inscripcion(dias_aviso=15)
     yield
     await engine.dispose()
 

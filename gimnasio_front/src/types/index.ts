@@ -162,8 +162,16 @@ export interface Ejercicio {
 export interface RutinaEjercicioDetalle {
   ejercicio_id: number
   nombre: string
+  descripcion?: string | null
   con_maquina: boolean
+  maquina_id?: number | null
   maquina_nombre?: string | null
+  maquina_codigo?: string | null
+  maquina_ubicacion?: string | null
+  maquina_descripcion?: string | null
+  maquina_fotourl?: string | null
+  fotourl?: string | null
+  videourl?: string | null
   grupo_muscular?: string | null
   series?: number | null
   repeticiones?: string | null
@@ -514,4 +522,111 @@ export interface Membresia {
   fecha_inicio?: string | null
   fecha_fin?: string | null
   created_at: string
+}
+
+export interface CondicionesMedicas {
+  hipertension: boolean
+  pulmonar: boolean
+  diabetes: boolean
+  osteoarticular: boolean
+  neurologica: boolean
+  convulsiones: boolean
+}
+
+export interface FichaInscripcion {
+  id: number
+  estudiante_id: number
+  version: number
+  vigente: boolean
+  nombre: string
+  cs?: string | null
+  carrera?: string | null
+  domicilio?: string | null
+  email: string
+  telefono?: string | null
+  fecha_nacimiento?: string | null
+  sexo?: string | null
+  grupo_sanguineo?: string | null
+  altura_cm?: number | null
+  peso_kg?: string | null
+  mes_horario?: string | null
+  antecedentes_cardiovasculares: boolean
+  antecedentes_cardiovasculares_detalle?: string | null
+  procedimientos_cardiovasculares: boolean
+  procedimientos_cardiovasculares_detalle?: string | null
+  condiciones: CondicionesMedicas
+  condiciones_detalle?: string | null
+  intervencion_quirurgica: boolean
+  intervencion_quirurgica_detalle?: string | null
+  fracturas: boolean
+  fracturas_detalle?: string | null
+  sintomas_deportivos: boolean
+  sintomas_deportivos_detalle?: string | null
+  acepta_reglamento: boolean
+  declaracion_jurada: boolean
+  firma_nombre: string
+  firma_fecha: string
+  firma_ci?: string | null
+  requiere_certificado_medico: boolean
+  certificado_medico_recibido: boolean
+  certificado_medico_url?: string | null
+  fecha_vigencia_desde: string
+  fecha_vigencia_hasta: string
+  estado: string
+  created_at: string
+}
+
+export interface FichaInscripcionResumen {
+  id: number
+  estudiante_id: number
+  estudiante_nombre: string
+  estudiante_registro?: string | null
+  version: number
+  vigente: boolean
+  estado: string
+  fecha_vigencia_desde: string
+  fecha_vigencia_hasta: string
+  requiere_certificado_medico: boolean
+  certificado_medico_recibido: boolean
+  certificado_medico_url?: string | null
+  created_at: string
+}
+
+export interface FichaEstado {
+  tiene_ficha: boolean
+  vigente: boolean
+  estado?: string | null
+  fecha_vigencia_hasta?: string | null
+  dias_para_vencer?: number | null
+  requiere_actualizacion: boolean
+  requiere_certificado_medico: boolean
+  certificado_medico_recibido: boolean
+  ficha?: FichaInscripcion | null
+}
+
+export interface FichaInscripcionCreate {
+  domicilio: string
+  fecha_nacimiento: string
+  sexo: 'F' | 'M'
+  grupo_sanguineo?: string
+  altura_cm: number
+  peso_kg: number
+  mes_horario?: string
+  cs?: string
+  antecedentes_cardiovasculares: boolean
+  antecedentes_cardiovasculares_detalle?: string
+  procedimientos_cardiovasculares: boolean
+  procedimientos_cardiovasculares_detalle?: string
+  condiciones: CondicionesMedicas
+  condiciones_detalle?: string
+  intervencion_quirurgica: boolean
+  intervencion_quirurgica_detalle?: string
+  fracturas: boolean
+  fracturas_detalle?: string
+  sintomas_deportivos: boolean
+  sintomas_deportivos_detalle?: string
+  acepta_reglamento: boolean
+  declaracion_jurada: boolean
+  firma_nombre: string
+  firma_ci?: string
 }

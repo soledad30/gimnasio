@@ -20,6 +20,7 @@ from app.models.sala import Sala
 from app.models.asignacion_instructor import AsignacionInstructor
 from app.models.rol_permiso import RolPermiso
 from app.models.configuracion_sistema import ConfiguracionSistema
+from app.models.ficha_inscripcion import FichaInscripcion
 
 __all__ = [
     "Usuario", "Administrador", "Instructor", "Estudiante",
@@ -28,4 +29,5 @@ __all__ = [
     "Actividad", "Maquina", "MantenimientoMaquina", "Inscripcion", "Reserva", "Pago", "Sala", "AsignacionInstructor",
     "RolPermiso",
     "ConfiguracionSistema",
+    "FichaInscripcion",
 ]

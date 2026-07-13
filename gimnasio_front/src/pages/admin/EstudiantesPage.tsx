@@ -3,7 +3,7 @@ import { FormEvent, useState } from 'react'
 import { Nfc, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
-import { estudiantesApi } from '@/api/services'
+import { estudiantesApi, fichasInscripcionApi } from '@/api/services'
 import type { Estudiante } from '@/types'
 import { DeleteConfirmDialog } from '@/components/crud/DeleteConfirmDialog'
 import { DetailGrid } from '@/components/crud/DetailGrid'
@@ -47,6 +47,13 @@ export function EstudiantesPage() {
   const [busqueda, setBusqueda] = useState('')
 
   const busquedaTrim = busqueda.trim()
+
+  const { data: fichaEstudiante } = useQuery({
+    queryKey: ['ficha-estudiante', viewRow?.id],
+    queryFn: () => fichasInscripcionApi.porEstudiante(viewRow!.id).then((r) => r.data),
+    enabled: viewRow !== null,
+    retry: false,
+  })
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['estudiantes', busquedaTrim],
@@ -335,6 +342,12 @@ export function EstudiantesPage() {
                       : 'Sin fechas',
                 },
                 { label: 'Fecha de alta', value: new Date(viewRow.created_at).toLocaleString() },
+                {
+                  label: 'Ficha inscripción',
+                  value: fichaEstudiante
+                    ? `${fichaEstudiante.estado} — vence ${fichaEstudiante.fecha_vigencia_hasta}`
+                    : 'Sin ficha vigente',
+                },
               ]}
             />
           )}
