@@ -55,9 +55,7 @@ export function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Monitoreo en Tiempo Real</h1>
-        <p className="text-muted-foreground">
-          Seguridad y control de accesos{data?.fecha ? ` — ${data.fecha}` : ''}
-        </p>
+        
       </div>
 
       {error && (

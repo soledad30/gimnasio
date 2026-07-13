@@ -51,7 +51,7 @@ const MESES = [
 ]
 
 function ciDesdePerfil(perfil?: Estudiante | null, ficha?: FichaInscripcion | null) {
-  return ficha?.cs ?? ficha?.firma_ci ?? perfil?.cs ?? perfil?.registro_univercotario ?? ''
+  return ficha?.cs ?? ficha?.firma_ci ?? perfil?.cs ?? ''
 }
 
 function mesHorarioSugerido(ficha?: FichaInscripcion | null) {
