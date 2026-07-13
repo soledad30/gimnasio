@@ -160,7 +160,7 @@ export function ActividadesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Actividades"
-        description="Clases en salas (7:00–19:00, bloques de 1 h, máx. 20 personas)"
+        //description="Clases en salas (7:00–19:00, bloques de 1 h, máx. 20 personas)"
         onCreate={() => {
           setSelected(null)
           setMode('create')
@@ -241,9 +241,7 @@ export function ActividadesPage() {
             </div>
             <div className="space-y-2">
               <Label>Días de la semana</Label>
-              <p className="text-xs text-muted-foreground">
-                Atención de lunes a viernes. Puedes elegir 2, 3 o más días para la misma actividad y horario.
-              </p>
+              
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {DIAS_ACTIVIDAD.map((d) => {
                   const checked = selectedDias.includes(d)
@@ -328,9 +326,7 @@ export function ActividadesPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">
-                Gimnasio abierto 7:00–19:00. La sala queda ocupada en ese bloque.
-              </p>
+              
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -360,10 +356,7 @@ export function ActividadesPage() {
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Si no se programa un nuevo periodo, el horario e instructor se mantienen del periodo
-              anterior (herencia automática).
-            </p>
+            
             <div className="space-y-2">
               <Label htmlFor="capacidad">Capacidad (cupos)</Label>
               <Input

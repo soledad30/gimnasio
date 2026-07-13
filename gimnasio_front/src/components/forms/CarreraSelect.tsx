@@ -49,7 +49,6 @@ export function CarreraSelect({
           <option value={valor}>{valor} (registrada anteriormente)</option>
         ) : null}
       </select>
-      <p className="text-xs text-muted-foreground">Carreras oficiales de la UAGRM, Santa Cruz.</p>
-    </div>
+      </div>
   )
 }

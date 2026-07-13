@@ -110,9 +110,7 @@ export function ConfiguracionPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
-        <p className="text-muted-foreground">
-          Organización, redes, métodos de cobro y reglas operativas (solo administrador)
-        </p>
+       
       </div>
 
       {isLoading || !data ? (
@@ -125,8 +123,8 @@ export function ConfiguracionPage() {
                 <MapPin className="h-5 w-5" />
                 Organización
               </CardTitle>
-              <CardDescription>Datos visibles en el login y en el sistema</CardDescription>
-            </CardHeader>
+             
+             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="nombre_organizacion">Nombre</Label>
@@ -174,7 +172,7 @@ export function ConfiguracionPage() {
                 <Share2 className="h-5 w-5" />
                 Redes sociales
               </CardTitle>
-              <CardDescription>Se muestran en la pantalla de inicio de sesión</CardDescription>
+              
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -230,9 +228,7 @@ export function ConfiguracionPage() {
                 <Banknote className="h-5 w-5" />
                 Métodos de cobro
               </CardTitle>
-              <CardDescription>
-                Datos para cobros por QR Simple (Yape, banca móvil) o transferencia en Bolivia
-              </CardDescription>
+              
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
@@ -295,10 +291,7 @@ export function ConfiguracionPage() {
                 <Clock className="h-5 w-5" />
                 Reglas operativas
               </CardTitle>
-              <CardDescription>
-                Horario del gimnasio (hora, minuto y segundo) y días de inscripción antes del
-                próximo mes
-              </CardDescription>
+              
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">

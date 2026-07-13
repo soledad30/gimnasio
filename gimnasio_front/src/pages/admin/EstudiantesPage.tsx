@@ -122,7 +122,7 @@ export function EstudiantesPage() {
     <>
       <PageHeader
         title="Estudiantes"
-        description="Miembros del gimnasio y tarjetas NFC"
+        //description="Miembros del gimnasio y tarjetas NFC"
         onCreate={() => {
           setEditRow(null)
           setFormMode('create')

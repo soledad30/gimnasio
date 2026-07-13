@@ -163,7 +163,7 @@ export function UsuariosPage() {
     <>
       <PageHeader
         title="Cuentas de usuario"
-        description="Gestiona cuentas, acceso y contraseñas del personal"
+        //description="Gestiona cuentas, acceso y contraseñas del personal"
         onCreate={() => setOpenCreate(true)}
         createLabel="Nuevo usuario"
       />

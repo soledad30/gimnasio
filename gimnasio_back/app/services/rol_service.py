@@ -14,10 +14,10 @@ from app.models.rol_permiso import RolPermiso
 from app.schemas.rol import PermisoInfo, RolPermisosDetalle, RolPermisosUpdate, RolResumen
 
 ROL_LABELS: dict[str, tuple[str, str]] = {
-    "admin": ("Administrador", "Acceso total al sistema. Los permisos no se pueden modificar."),
-    "recepcion": ("Recepción", "Personal de mostrador: estudiantes, acceso, reservas y pagos."),
-    "instructor": ("Instructor", "Entrenadores con acceso a su portal y clases asignadas."),
-    "estudiante": ("Estudiante", "Miembros con acceso al portal personal."),
+    "admin": ("Administrador", "Acceso total al sistema."),
+    "recepcion": ("Recepción", "Personal Recepcion"),
+    "instructor": ("Instructor", "Entrenadores con acceso a su portal"),
+    "estudiante": ("Estudiante", "Miembros con acceso"),
 }
 
 

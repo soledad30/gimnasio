@@ -239,9 +239,7 @@ export function MaquinasPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Máquinas y equipos</h1>
-          <p className="text-muted-foreground">
-            Inventario, estado y mantenimiento de equipos del gimnasio
-          </p>
+          
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
@@ -431,9 +429,7 @@ export function MaquinasPage() {
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Sube una foto para que los estudiantes reconozcan el equipo.
-                </p>
+                
               </div>
             </div>
             <div className="space-y-2">
@@ -481,9 +477,7 @@ export function MaquinasPage() {
                     defaultValue={10}
                     required
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Estimación según manual o plan ISO 55000 (solo al registrar).
-                  </p>
+                  
                 </div>
               ) : (
                 selected?.anios_vida_util != null && (
@@ -534,10 +528,7 @@ export function MaquinasPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">
-                Si eliges &quot;Mantenimiento&quot;, al guardar se abrirá el formulario según el plan
-                ISO 55000.
-              </p>
+              
             </div>
           </form>
           <DialogFooter>

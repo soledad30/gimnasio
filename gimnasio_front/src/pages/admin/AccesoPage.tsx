@@ -262,14 +262,12 @@ export function AccesoPage() {
               <QrCode className="h-5 w-5" />
               QR y acceso manual
             </CardTitle>
-            <CardDescription>
-              Escanea el QR o ingresa el código — el sistema decide entrada o salida
-            </CardDescription>
+            
           </CardHeader>
           <CardContent className="space-y-4">
             <QrCameraScanner onScan={onQrCameraScan} pauseDecoding={manualMut.isPending} />
             <div className="space-y-2">
-              <Label htmlFor="codigo">Código escaneado o manual</Label>
+              <Label htmlFor="codigo">Registro o Código escaneado/manual</Label>
               <Input
                 ref={qrInputRef}
                 id="codigo"
@@ -289,11 +287,7 @@ export function AccesoPage() {
             >
               Registrar ingreso / salida
             </Button>
-            <p className="text-xs text-muted-foreground">
-              1) El estudiante muestra su QR (app → Mi acceso).
-              2) Primer escaneo = entrada · segundo = salida.
-              3) Si ya salió hoy, no podrá volver a entrar hasta mañana.
-            </p>
+            
           </CardContent>
         </Card>
       </div>

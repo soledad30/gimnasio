@@ -217,7 +217,7 @@ export function EjerciciosPage() {
     <>
       <PageHeader
         title="Ejercicios"
-        description="Catálogo con foto o video demostrativo"
+        //description="Catálogo con foto o video demostrativo"
         onCreate={openCreate}
         createLabel="Nuevo ejercicio"
       />
@@ -459,9 +459,7 @@ export function EjerciciosPage() {
                   placeholder="https://youtube.com/watch?v=..."
                   defaultValue={selected?.videourl ?? ''}
                 />
-                <p className="text-xs text-muted-foreground">
-                  YouTube o enlace directo .mp4. Si hay video, tiene prioridad sobre la foto en la tarjeta.
-                </p>
+                
               </div>
             </div>
           </form>

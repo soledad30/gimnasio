@@ -261,9 +261,7 @@ export function InstructoresPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Entrenadores</h1>
-          <p className="text-muted-foreground">
-            Gestión de entrenadores, horarios y asignaciones de estudiantes
-          </p>
+          
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />

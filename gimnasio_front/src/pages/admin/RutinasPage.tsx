@@ -203,7 +203,7 @@ export function RutinasPage() {
     <>
       <PageHeader
         title="Rutinas"
-        description="Plantillas por objetivo (definición, ganancia muscular, etc.). Solo admin o instructor las crea; luego se asignan al estudiante según su evaluación."
+        //description="Plantillas por objetivo (definición, ganancia muscular, etc.). Solo admin o instructor las crea; luego se asignan al estudiante según su evaluación."
         onCreate={openCreate}
         createLabel="Nueva plantilla"
       />
@@ -294,9 +294,7 @@ export function RutinasPage() {
             </div>
             <div className="space-y-2">
               <Label>Ejercicios de la rutina</Label>
-              <p className="text-xs text-muted-foreground">
-                Selecciona según el objetivo. Incluye ejercicios con y sin máquina.
-              </p>
+              
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
                 {ejercicios.length === 0 ? (
                   <p className="text-sm text-muted-foreground">

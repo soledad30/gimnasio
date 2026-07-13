@@ -111,17 +111,14 @@ export function ReservasAdminPage() {
     <div className="space-y-6">
       <PageHeader
         title="Reservas e inscripciones"
-        description="Inscripciones mensuales con pago, reservas de clases y confirmación en recepción."
+       // description="Inscripciones mensuales con pago, reservas de clases y confirmación en recepción."
       />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle>Inscripciones mensuales</CardTitle>
-            <CardDescription>
-              El estudiante recibe notificación con referencia y QR. Confirma el pago en recepción
-              antes de que empiece el mes.
-            </CardDescription>
+            
           </div>
           <Button onClick={() => setOpenInscripcion(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -268,10 +265,7 @@ export function ReservasAdminPage() {
                 defaultValue={inicioMesSiguiente()}
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                El estudiante debe pagar antes de que empiece este mes. Se envía notificación
-                automática.
-              </p>
+              
             </div>
             <div className="space-y-2">
               <Label htmlFor="tipo">Tipo</Label>

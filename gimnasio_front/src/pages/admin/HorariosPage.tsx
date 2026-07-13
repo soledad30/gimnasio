@@ -257,10 +257,7 @@ export function HorariosPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Horarios UAGRM-GYM</h1>
-        <p className="text-muted-foreground">
-          Operación {config?.hora_apertura ?? '07:00'} – {config?.hora_cierre ?? '19:00'} · Actividades
-          por bloques de 1 h · Sala máquinas: 2 turnos (mañana y tarde)
-        </p>
+        
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
@@ -316,11 +313,7 @@ export function HorariosPage() {
         <Card>
           <CardHeader>
             <CardTitle>Asignar coach — sala de máquinas</CardTitle>
-            <CardDescription>
-              Solo 2 turnos: mañana (entrada {turnosCoach[0]?.hora_inicio ?? '07:00'}) y tarde
-              (entrada {turnosCoach[1]?.hora_inicio ?? '13:00'}). Máximo 2 coaches por turno y
-              periodo (mes, trimestre, semestre o anual).
-            </CardDescription>
+            
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmitCoach} className="space-y-4">
@@ -444,8 +437,7 @@ export function HorariosPage() {
                 </div>
               </div>
               <CardDescription>
-                Sala de máquinas · 2 coaches por turno · periodo activo o heredado en el mes
-                seleccionado
+                Sala de máquinas · 2 coaches por turno
               </CardDescription>
             </div>
           </CardHeader>
@@ -484,10 +476,7 @@ export function HorariosPage() {
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle>Disponibilidad salas de actividades</CardTitle>
-            <CardDescription>
-              Horario semanal (Lunes–Viernes) vigente al {fecha}. Elige una sala para ver su
-              ocupación. Sincronizado con Actividades.
-            </CardDescription>
+            
           </div>
           {salasSemanal.length > 0 && (
             <div className="flex shrink-0 gap-2">

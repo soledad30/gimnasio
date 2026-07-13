@@ -178,7 +178,7 @@ export function NotificacionesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Notificaciones"
-        description="Enviar alertas a un estudiante, a todos o por rol (recepción, instructores…)"
+        //description="Enviar alertas a un estudiante, a todos o por rol (recepción, instructores…)"
         onCreate={() => {
           resetForm()
           setOpen(true)

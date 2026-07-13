@@ -243,7 +243,7 @@ export function PagosPage() {
     <>
       <PageHeader
         title="Pagos"
-        description="Inscripciones pendientes, estudiantes habilitados e historial de cobros"
+        //description="Inscripciones pendientes, estudiantes habilitados e historial de cobros"
         onCreate={() => setOpen(true)}
         createLabel="Registrar pago"
       />
@@ -354,9 +354,7 @@ export function PagosPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Estudiantes habilitados</CardTitle>
-          <CardDescription>
-            Inscripciones confirmadas del mes en curso — pueden ingresar al gym y usar su sala
-          </CardDescription>
+          
         </CardHeader>
         <CardContent>
           {loadingHabilitados ? (

@@ -161,9 +161,7 @@ export function ReportesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reportes</h1>
-          <p className="text-muted-foreground">
-            Panel estadístico del gimnasio — accesos, ingresos y membresías
-          </p>
+          
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">

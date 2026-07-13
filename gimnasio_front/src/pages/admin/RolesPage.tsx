@@ -106,7 +106,7 @@ export function RolesPage() {
     <>
       <PageHeader
         title="Roles y permisos"
-        description="Define qué acciones puede realizar cada rol en el sistema"
+        //description="Define qué acciones puede realizar cada rol en el sistema"
       />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">

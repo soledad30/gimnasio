@@ -208,7 +208,7 @@ export function MembresiasPage() {
     <>
       <PageHeader
         title="Membresías"
-        description="Solo sala de máquinas: al asignar o renovar se habilita QR, NFC y registro de ingreso. No cubre sala de actividades."
+        //description="Solo sala de máquinas: al asignar o renovar se habilita QR, NFC y registro de ingreso. No cubre sala de actividades."
         onCreate={openAsignar}
         createLabel="Asignar / renovar"
       />
