@@ -152,6 +152,9 @@ class FichaInscripcionService(BaseService[FichaInscripcion]):
         requiere_cert = _requiere_certificado(data)
         estado = _calcular_estado(requiere_cert, False, vigencia_hasta)
 
+        if data.cs:
+            estudiante.cs = data.cs
+
         ficha = FichaInscripcion(
             estudiante_id=estudiante.id,
             version=version,

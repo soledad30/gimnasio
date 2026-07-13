@@ -10,6 +10,7 @@ import { DetailGrid } from '@/components/crud/DetailGrid'
 import { PageHeader } from '@/components/crud/PageHeader'
 import { RowActions } from '@/components/crud/RowActions'
 import { OBJETIVOS_RUTINA, objetivoLabel } from '@/constants/objetivos'
+import { EstudianteSearchSelect } from '@/components/forms/EstudianteSearchSelect'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -43,6 +44,7 @@ export function RutinasPage() {
   const [selected, setSelected] = useState<Rutina | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [assignRow, setAssignRow] = useState<Rutina | null>(null)
+  const [assignEstudianteId, setAssignEstudianteId] = useState<number | null>(null)
   const [objetivoFiltro, setObjetivoFiltro] = useState('')
   const [ejercicioConfig, setEjercicioConfig] = useState<
     Record<number, { series: number; repeticiones: string }>
@@ -81,6 +83,10 @@ export function RutinasPage() {
       setEjercicioConfig({})
     }
   }, [mode, selected])
+
+  useEffect(() => {
+    if (!assignRow) setAssignEstudianteId(null)
+  }, [assignRow])
 
   const openCreate = () => {
     setSelected(null)
@@ -387,23 +393,13 @@ export function RutinasPage() {
               <p className="text-sm text-muted-foreground">
                 Plantilla: <strong>{assignRow.nombre}</strong> · {objetivoLabel(assignRow.objetivo)}
               </p>
-              <div className="space-y-2">
-                <Label htmlFor="estudiante_id">Estudiante</Label>
-                <select
-                  id="estudiante_id"
-                  name="estudiante_id"
-                  required
-                  className={selectClassName}
-                  aria-label="Estudiante"
-                >
-                  <option value="">Seleccionar estudiante…</option>
-                  {estudiantes.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <EstudianteSearchSelect
+                estudiantes={estudiantes}
+                value={assignEstudianteId}
+                onChange={setAssignEstudianteId}
+                required
+                placeholder="Buscar por nombre, registro o CI…"
+              />
               <div className="space-y-2">
                 <Label htmlFor="notas_asignacion">Notas de evaluación (opcional)</Label>
                 <textarea

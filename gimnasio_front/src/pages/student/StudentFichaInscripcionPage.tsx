@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
-import { estudiantesApi, fichasInscripcionApi } from '@/api/services'
+import { estudiantesApi, fichasInscripcionApi, usuariosApi } from '@/api/services'
 import { DECLARACION_JURADA, REGLAS_GIMNASIO } from '@/data/reglamentoGym'
-import type { CondicionesMedicas, FichaInscripcionCreate } from '@/types'
+import type { CondicionesMedicas, Estudiante, FichaInscripcion, FichaInscripcionCreate } from '@/types'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,86 @@ const emptyCondiciones = (): CondicionesMedicas => ({
   neurologica: false,
   convulsiones: false,
 })
+
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
+
+function ciDesdePerfil(perfil?: Estudiante | null, ficha?: FichaInscripcion | null) {
+  return ficha?.cs ?? ficha?.firma_ci ?? perfil?.cs ?? perfil?.registro_univercotario ?? ''
+}
+
+function mesHorarioSugerido(ficha?: FichaInscripcion | null) {
+  if (ficha?.mes_horario) return ficha.mes_horario
+  const now = new Date()
+  return `${MESES[now.getMonth()]} ${now.getFullYear()}`
+}
+
+type FormDefaults = {
+  domicilio: string
+  fechaNacimiento: string
+  sexo: 'F' | 'M'
+  grupoSanguineo: string
+  alturaCm: string
+  pesoKg: string
+  mesHorario: string
+  cs: string
+  telefono: string
+  antecedentesCardio: boolean
+  antecedentesCardioDet: string
+  procCardio: boolean
+  procCardioDet: string
+  condiciones: CondicionesMedicas
+  condicionesDetalle: string
+  intervencion: boolean
+  intervencionDet: string
+  fracturas: boolean
+  fracturasDet: string
+  sintomas: boolean
+  sintomasDet: string
+  firmaNombre: string
+  firmaCi: string
+}
+
+function buildFormDefaults(perfil?: Estudiante | null, ficha?: FichaInscripcion | null): FormDefaults {
+  const ci = ciDesdePerfil(perfil, ficha)
+  return {
+    domicilio: ficha?.domicilio ?? '',
+    fechaNacimiento: ficha?.fecha_nacimiento ?? '',
+    sexo: (ficha?.sexo as 'F' | 'M') ?? 'M',
+    grupoSanguineo: ficha?.grupo_sanguineo ?? '',
+    alturaCm: ficha?.altura_cm?.toString() ?? '',
+    pesoKg: ficha?.peso_kg ?? '',
+    mesHorario: mesHorarioSugerido(ficha),
+    cs: ci,
+    telefono: ficha?.telefono ?? perfil?.telefono ?? '',
+    antecedentesCardio: ficha?.antecedentes_cardiovasculares ?? false,
+    antecedentesCardioDet: ficha?.antecedentes_cardiovasculares_detalle ?? '',
+    procCardio: ficha?.procedimientos_cardiovasculares ?? false,
+    procCardioDet: ficha?.procedimientos_cardiovasculares_detalle ?? '',
+    condiciones: { ...emptyCondiciones(), ...(ficha?.condiciones ?? {}) },
+    condicionesDetalle: ficha?.condiciones_detalle ?? '',
+    intervencion: ficha?.intervencion_quirurgica ?? false,
+    intervencionDet: ficha?.intervencion_quirurgica_detalle ?? '',
+    fracturas: ficha?.fracturas ?? false,
+    fracturasDet: ficha?.fracturas_detalle ?? '',
+    sintomas: ficha?.sintomas_deportivos ?? false,
+    sintomasDet: ficha?.sintomas_deportivos_detalle ?? '',
+    firmaNombre: ficha?.firma_nombre ?? perfil?.nombre ?? '',
+    firmaCi: ficha?.firma_ci ?? ci,
+  }
+}
 
 function SiNoField({
   label,
@@ -104,6 +184,7 @@ export function StudentFichaInscripcionPage() {
   const [pesoKg, setPesoKg] = useState('')
   const [mesHorario, setMesHorario] = useState('')
   const [cs, setCs] = useState('')
+  const [telefono, setTelefono] = useState('')
 
   const [aceptaReglamento, setAceptaReglamento] = useState(false)
   const [reglamentoLeido, setReglamentoLeido] = useState(false)
@@ -125,7 +206,7 @@ export function StudentFichaInscripcionPage() {
   const [firmaNombre, setFirmaNombre] = useState('')
   const [firmaCi, setFirmaCi] = useState('')
 
-  const { data: perfil } = useQuery({
+  const { data: perfil, isLoading: loadingPerfil } = useQuery({
     queryKey: ['mi-perfil'],
     queryFn: () => estudiantesApi.miPerfil().then((r) => r.data),
   })
@@ -136,9 +217,16 @@ export function StudentFichaInscripcionPage() {
   })
 
   const createMut = useMutation({
-    mutationFn: (body: FichaInscripcionCreate) => fichasInscripcionApi.crear(body),
+    mutationFn: async (body: FichaInscripcionCreate) => {
+      const tel = telefono.trim()
+      if (perfil && tel !== (perfil.telefono ?? '')) {
+        await usuariosApi.updateMe({ telefono: tel || null })
+      }
+      return fichasInscripcionApi.crear(body)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mi-ficha-estado'] })
+      qc.invalidateQueries({ queryKey: ['mi-perfil'] })
       setModo('ver')
       setPaso(0)
       toast.success('Ficha de inscripción guardada correctamente')
@@ -165,33 +253,38 @@ export function StudentFichaInscripcionPage() {
     }
   }
 
+  const aplicarDefaults = (ficha?: FichaInscripcion | null) => {
+    const d = buildFormDefaults(perfil, ficha)
+    setDomicilio(d.domicilio)
+    setFechaNacimiento(d.fechaNacimiento)
+    setSexo(d.sexo)
+    setGrupoSanguineo(d.grupoSanguineo)
+    setAlturaCm(d.alturaCm)
+    setPesoKg(d.pesoKg)
+    setMesHorario(d.mesHorario)
+    setCs(d.cs)
+    setTelefono(d.telefono)
+    setAntecedentesCardio(d.antecedentesCardio)
+    setAntecedentesCardioDet(d.antecedentesCardioDet)
+    setProcCardio(d.procCardio)
+    setProcCardioDet(d.procCardioDet)
+    setCondiciones(d.condiciones)
+    setCondicionesDetalle(d.condicionesDetalle)
+    setIntervencion(d.intervencion)
+    setIntervencionDet(d.intervencionDet)
+    setFracturas(d.fracturas)
+    setFracturasDet(d.fracturasDet)
+    setSintomas(d.sintomas)
+    setSintomasDet(d.sintomasDet)
+    setFirmaNombre(d.firmaNombre)
+    setFirmaCi(d.firmaCi)
+  }
+
   const iniciarFormulario = () => {
-    const f = estado?.ficha
-    setDomicilio(f?.domicilio ?? '')
-    setFechaNacimiento(f?.fecha_nacimiento ?? '')
-    setSexo((f?.sexo as 'F' | 'M') ?? 'M')
-    setGrupoSanguineo(f?.grupo_sanguineo ?? '')
-    setAlturaCm(f?.altura_cm?.toString() ?? '')
-    setPesoKg(f?.peso_kg ?? '')
-    setMesHorario(f?.mes_horario ?? '')
-    setCs(f?.cs ?? perfil?.cs ?? '')
-    setAntecedentesCardio(f?.antecedentes_cardiovasculares ?? false)
-    setAntecedentesCardioDet(f?.antecedentes_cardiovasculares_detalle ?? '')
-    setProcCardio(f?.procedimientos_cardiovasculares ?? false)
-    setProcCardioDet(f?.procedimientos_cardiovasculares_detalle ?? '')
-    setCondiciones(f?.condiciones ?? emptyCondiciones())
-    setCondicionesDetalle(f?.condiciones_detalle ?? '')
-    setIntervencion(f?.intervencion_quirurgica ?? false)
-    setIntervencionDet(f?.intervencion_quirurgica_detalle ?? '')
-    setFracturas(f?.fracturas ?? false)
-    setFracturasDet(f?.fracturas_detalle ?? '')
-    setSintomas(f?.sintomas_deportivos ?? false)
-    setSintomasDet(f?.sintomas_deportivos_detalle ?? '')
+    aplicarDefaults(estado?.ficha)
     setAceptaReglamento(false)
     setReglamentoLeido(false)
     setDeclaracion(false)
-    setFirmaNombre(f?.firma_nombre ?? perfil?.nombre ?? '')
-    setFirmaCi(f?.firma_ci ?? f?.cs ?? perfil?.cs ?? '')
     setPaso(0)
     setModo('form')
   }
@@ -249,7 +342,7 @@ export function StudentFichaInscripcionPage() {
     createMut.mutate(body)
   }
 
-  if (isLoading) {
+  if (isLoading || loadingPerfil) {
     return <Skeleton className="h-64 w-full" />
   }
 
@@ -365,7 +458,7 @@ export function StudentFichaInscripcionPage() {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button onClick={iniciarFormulario}>
+              <Button onClick={iniciarFormulario} disabled={!perfil}>
                 {estado?.tiene_ficha ? 'Actualizar ficha' : 'Completar ficha'}
               </Button>
               {estado?.tiene_ficha && (
@@ -418,10 +511,55 @@ export function StudentFichaInscripcionPage() {
         <CardContent className="space-y-4">
           {paso === 0 && (
             <>
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+                <p className="mb-3 font-medium text-foreground">
+                  Datos de tu cuenta (autocargados — puedes editarlos)
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Nombre completo</Label>
+                    <Input value={perfil?.nombre ?? ''} readOnly className="bg-muted/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Correo electrónico</Label>
+                    <Input value={perfil?.email ?? ''} readOnly className="bg-muted/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Carrera / facultad</Label>
+                    <Input value={perfil?.carrera ?? ''} readOnly className="bg-muted/40" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="telefono">Celular</Label>
+                    <Input
+                      id="telefono"
+                      type="tel"
+                      value={telefono}
+                      onChange={(e) => setTelefono(e.target.value)}
+                      placeholder="70000000"
+                    />
+                  </div>
+                  {perfil?.registro_univercotario && (
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs text-muted-foreground">Registro universitario</Label>
+                      <Input
+                        value={perfil.registro_univercotario}
+                        readOnly
+                        className="bg-muted/40 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="cs">C.I. / Código registro</Label>
-                  <Input id="cs" value={cs} onChange={(e) => setCs(e.target.value)} />
+                  <Label htmlFor="cs">C.I.</Label>
+                  <Input
+                    id="cs"
+                    value={cs}
+                    onChange={(e) => setCs(e.target.value)}
+                    placeholder="Cédula de identidad"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="domicilio">Domicilio</Label>

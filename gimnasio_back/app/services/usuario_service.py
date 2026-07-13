@@ -210,6 +210,31 @@ class UsuarioService(BaseService[Usuario]):
         updates = data.model_dump(exclude_none=True)
         for field, value in updates.items():
             setattr(current, field, value)
+
+        if "nombre" in updates or "telefono" in updates:
+            from app.models.estudiante import Estudiante
+            from app.models.instructor import Instructor
+
+            est = await self.db.execute(
+                select(Estudiante).where(Estudiante.usuario_id == current.id)
+            )
+            estudiante = est.scalar_one_or_none()
+            if estudiante:
+                if "nombre" in updates:
+                    estudiante.nombre = current.nombre
+                if "telefono" in updates:
+                    estudiante.telefono = current.telefono
+
+            inst = await self.db.execute(
+                select(Instructor).where(Instructor.usuario_id == current.id)
+            )
+            instructor = inst.scalar_one_or_none()
+            if instructor:
+                if "nombre" in updates:
+                    instructor.nombre = current.nombre
+                if "telefono" in updates:
+                    instructor.telefono = current.telefono
+
         await self.db.commit()
         await self.db.refresh(current)
         return current
