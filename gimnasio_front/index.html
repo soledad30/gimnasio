@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UAGRM-Gym — Gestión de Gimnasio</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('uagrm-gym-theme')
+          if (t !== 'light' && t !== 'dark') t = 'light'
+          if (t === 'dark') document.documentElement.classList.add('dark')
+          document.documentElement.style.colorScheme = t
+        } catch (e) {}
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />

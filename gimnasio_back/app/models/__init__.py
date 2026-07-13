@@ -18,10 +18,14 @@ from app.models.reserva import Reserva
 from app.models.pago import Pago
 from app.models.sala import Sala
 from app.models.asignacion_instructor import AsignacionInstructor
+from app.models.rol_permiso import RolPermiso
+from app.models.configuracion_sistema import ConfiguracionSistema
 
 __all__ = [
     "Usuario", "Administrador", "Instructor", "Estudiante",
     "Acceso", "Asistencia", "Membresia", "Notificacion",
     "Reporte", "Rutina", "Ejercicio", "RutinaEjercicio",
     "Actividad", "Maquina", "MantenimientoMaquina", "Inscripcion", "Reserva", "Pago", "Sala", "AsignacionInstructor",
+    "RolPermiso",
+    "ConfiguracionSistema",
 ]

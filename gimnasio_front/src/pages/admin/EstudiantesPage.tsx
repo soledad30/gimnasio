@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FormEvent, useState } from 'react'
-import { Nfc } from 'lucide-react'
+import { Nfc, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { estudiantesApi } from '@/api/services'
@@ -44,10 +44,14 @@ export function EstudiantesPage() {
   const [nfcModal, setNfcModal] = useState<number | null>(null)
   const [nfcUid, setNfcUid] = useState('')
   const [error, setError] = useState('')
+  const [busqueda, setBusqueda] = useState('')
+
+  const busquedaTrim = busqueda.trim()
 
   const { data = [], isLoading } = useQuery({
-    queryKey: ['estudiantes'],
-    queryFn: () => estudiantesApi.list().then((r) => r.data),
+    queryKey: ['estudiantes', busquedaTrim],
+    queryFn: () =>
+      estudiantesApi.list(busquedaTrim ? { q: busquedaTrim } : undefined).then((r) => r.data),
   })
 
   const createMut = useMutation({
@@ -135,15 +139,31 @@ export function EstudiantesPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Listado</CardTitle>
-          <CardDescription>{data.length} estudiante(s) registrado(s)</CardDescription>
+          <CardDescription>
+            {busquedaTrim
+              ? `${data.length} resultado(s) para «${busquedaTrim}»`
+              : `${data.length} estudiante(s) — mostrando los más recientes`}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por registro, nombre, email o teléfono…"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="pl-9"
+              aria-label="Buscar estudiantes"
+            />
+          </div>
+
           {isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Registro</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Teléfono</TableHead>
@@ -155,13 +175,18 @@ export function EstudiantesPage() {
               <TableBody>
                 {data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No hay estudiantes. Crea el primero.
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      {busquedaTrim
+                        ? 'No hay estudiantes que coincidan con la búsqueda.'
+                        : 'No hay estudiantes. Crea el primero.'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   data.map((e) => (
                     <TableRow key={e.id}>
+                      <TableCell className="font-mono text-sm">
+                        {e.registro_univercotario || '—'}
+                      </TableCell>
                       <TableCell className="font-medium">{e.nombre}</TableCell>
                       <TableCell>{e.email}</TableCell>
                       <TableCell>{e.telefono || '—'}</TableCell>
@@ -298,6 +323,7 @@ export function EstudiantesPage() {
                 { label: 'Nombre', value: viewRow.nombre },
                 { label: 'Email', value: viewRow.email },
                 { label: 'Teléfono', value: viewRow.telefono },
+                { label: 'Registro universitario', value: viewRow.registro_univercotario },
                 { label: 'Carrera', value: viewRow.carrera },
                 { label: 'Código acceso / QR', value: viewRow.codigo_acceso },
                 { label: 'NFC UID', value: viewRow.nfc_uid },
@@ -308,7 +334,7 @@ export function EstudiantesPage() {
                       ? `${viewRow.fechainicio_membresia} → ${viewRow.fechafin_membresia}`
                       : 'Sin fechas',
                 },
-                { label: 'Registro', value: new Date(viewRow.created_at).toLocaleString() },
+                { label: 'Fecha de alta', value: new Date(viewRow.created_at).toLocaleString() },
               ]}
             />
           )}

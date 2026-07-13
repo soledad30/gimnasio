@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 
 import { Layout } from '../components/Layout'
 
@@ -40,6 +40,8 @@ import { NotificacionesPage } from '../pages/admin/NotificacionesPage'
 import { ReportesPage } from '../pages/admin/ReportesPage'
 
 import { UsuariosPage } from '../pages/admin/UsuariosPage'
+import { RolesPage } from '../pages/admin/RolesPage'
+import { ConfiguracionPage } from '../pages/admin/ConfiguracionPage'
 
 import { InstructorActividadesPage } from '../pages/instructor/InstructorActividadesPage'
 
@@ -135,10 +137,13 @@ export function AppRoutes() {
           path="usuarios"
           element={
             <AdminOnly>
-              <UsuariosPage />
+              <Outlet />
             </AdminOnly>
           }
-        />
+        >
+          <Route index element={<UsuariosPage />} />
+          <Route path="roles" element={<RolesPage />} />
+        </Route>
         <Route
           path="instructores"
           element={
@@ -203,6 +208,15 @@ export function AppRoutes() {
             </AdminOnly>
           }
         />
+        <Route path="mis-avisos" element={<StudentNotificacionesPage />} />
+        <Route
+          path="configuracion"
+          element={
+            <AdminOnly>
+              <ConfiguracionPage />
+            </AdminOnly>
+          }
+        />
       </Route>
 
       <Route
@@ -218,6 +232,7 @@ export function AppRoutes() {
         <Route path="actividades" element={<InstructorActividadesPage />} />
         <Route path="horarios" element={<InstructorHorariosPage />} />
         <Route path="reservas" element={<InstructorReservasPage />} />
+        <Route path="notificaciones" element={<StudentNotificacionesPage />} />
       </Route>
 
       <Route

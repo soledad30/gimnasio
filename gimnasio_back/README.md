@@ -134,6 +134,36 @@ cp .env.example .env
 # Editar .env con tus credenciales de PostgreSQL
 ```
 
+#### Correo con Gmail (recuperación de contraseña)
+
+**Configuración automática (recomendado):**
+
+```bash
+cd gimnasio_back
+python scripts/setup_gmail.py
+```
+
+El script pide tu Gmail, la contraseña de aplicación de Google y envía un correo de prueba.
+
+**Manual:** en `.env` usa el **mismo Gmail** en `SMTP_USER` y `EMAILS_FROM_EMAIL`:
+
+```env
+SMTP_USER=tu@gmail.com
+SMTP_PASSWORD=abcd efgh ijkl mnop
+EMAILS_FROM_EMAIL=tu@gmail.com
+EMAIL_DEV_LOG_TO_CONSOLE=false
+```
+
+Contraseña de aplicación: https://myaccount.google.com/apppasswords (requiere verificación en 2 pasos).
+
+**Probar envío:**
+
+```bash
+python scripts/test_smtp.py destino@correo.com
+```
+
+Reinicia el backend después de cambiar `.env`. Los usuarios recuperan contraseña en la app con el **correo exacto** con el que se registraron.
+
 ### 4. Correr la aplicación
 
 ```bash

@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FormEvent, useState } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
-import { Copy, Loader2 } from 'lucide-react'
+import { FormEvent, useMemo, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import axios from 'axios'
 import { getErrorMessage } from '@/api/client'
-import { actividadesApi, inscripcionesApi, reservasApi } from '@/api/services'
-import type { Inscripcion } from '@/types'
+import { actividadesApi, configuracionApi, inscripcionesApi, membresiasApi, reservasApi } from '@/api/services'
+import type { Actividad, Inscripcion, Membresia } from '@/types'
+import { QrPagoPanel } from '@/components/pagos/QrPagoPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,25 +32,88 @@ import {
 const selectClassName =
   'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
 
-function estadoInscripcionBadge(estado: number) {
+type ModoReportar = 'auto' | 'notificar'
+
+function estadoInscripcionBadge(estado: number, pagoReportado?: boolean) {
   if (estado === 1) return { variant: 'success' as const, label: 'Confirmada' }
+  if (estado === 3 && pagoReportado)
+    return { variant: 'secondary' as const, label: 'Pago reportado' }
   if (estado === 3) return { variant: 'warning' as const, label: 'Pendiente de pago' }
   return { variant: 'outline' as const, label: 'Cancelada' }
 }
 
 function conceptoInscripcion(i: Inscripcion) {
-  if (i.tipo === 'sala_maquinas') return 'Sala de máquinas'
+  if (i.tipo === 'sala_maquinas') return 'Sala de máquinas (mensual)'
   return i.actividad_nombre ?? 'Actividad'
 }
 
-function formatExpira(iso?: string | null) {
-  if (!iso) return null
-  return new Date(iso).toLocaleString('es-BO', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function ultimoDiaMesISO(mesInicio: string) {
+  const [y, m] = mesInicio.slice(0, 7).split('-').map(Number)
+  const last = new Date(y, m, 0).getDate()
+  return `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`
+}
+
+function hoyLocalISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function estadoMembresiaBadge(m: Membresia) {
+  const hoy = hoyLocalISO()
+  if (!m.fecha_inicio || !m.fecha_fin) return { variant: 'outline' as const, label: 'Sin fechas' }
+  if (m.fecha_inicio <= hoy && m.fecha_fin >= hoy) return { variant: 'success' as const, label: 'Activa' }
+  if (m.fecha_fin < hoy) return { variant: 'destructive' as const, label: 'Vencida' }
+  return { variant: 'outline' as const, label: 'Pendiente' }
+}
+
+type FilaInscripcion = {
+  key: string
+  origen: 'membresia' | 'inscripcion'
+  concepto: string
+  desde: string
+  hasta: string
+  monto: string
+  estadoLabel: string
+  estadoVariant: 'success' | 'warning' | 'secondary' | 'outline' | 'destructive'
+  inscripcion?: Inscripcion
+}
+
+function parseDias(value?: string | null, diasLista?: string[]): string[] {
+  if (diasLista?.length) return diasLista.map((d) => d.toLowerCase())
+  if (!value?.trim()) return []
+  return value
+    .replace(/;/g, ',')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function horaAMinutos(hora?: string | null): number | null {
+  if (!hora) return null
+  const [h, m] = hora.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
+
+function actividadesChocan(a: Actividad, b: Actividad): boolean {
+  const diasA = new Set(parseDias(a.dia_semana, a.dias_semana))
+  const diasB = new Set(parseDias(b.dia_semana, b.dias_semana))
+  const diasComunes = [...diasA].some((d) => diasB.has(d))
+  if (!diasComunes) return false
+
+  const a0 = horaAMinutos(a.hora_inicio)
+  const b0 = horaAMinutos(b.hora_inicio)
+  if (a0 == null || b0 == null) return false
+  const a1 = horaAMinutos(a.hora_fin) ?? a0 + 60
+  const b1 = horaAMinutos(b.hora_fin) ?? b0 + 60
+  return a0 < b1 && b0 < a1
+}
+
+function etiquetaActividad(a: Actividad) {
+  const partes = [a.nombre]
+  if (a.hora_inicio) partes.push(a.hora_inicio)
+  if (a.dia_semana) partes.push(a.dia_semana)
+  return partes.join(' · ')
 }
 
 export function StudentReservasPage() {
@@ -57,6 +121,16 @@ export function StudentReservasPage() {
   const [openInscripcion, setOpenInscripcion] = useState(false)
   const [tipoInscripcion, setTipoInscripcion] = useState<'actividad' | 'sala_maquinas'>('actividad')
   const [pagoIns, setPagoIns] = useState<Inscripcion | null>(null)
+  const [reportarOpen, setReportarOpen] = useState(false)
+  const [modoReportar, setModoReportar] = useState<ModoReportar>('notificar')
+  const [metodoReportar, setMetodoReportar] = useState('qr')
+  const [comprobante, setComprobante] = useState('')
+  const [notasReportar, setNotasReportar] = useState('')
+
+  const { data: org } = useQuery({
+    queryKey: ['config-organizacion'],
+    queryFn: () => configuracionApi.getOrganizacion().then((r) => r.data),
+  })
 
   const { data: ventana } = useQuery({
     queryKey: ['inscripcion-ventana'],
@@ -68,10 +142,62 @@ export function StudentReservasPage() {
     queryFn: () => inscripcionesApi.mis().then((r) => r.data),
   })
 
+  const { data: membresia, isLoading: loadingMem } = useQuery({
+    queryKey: ['mi-membresia'],
+    queryFn: async () => {
+      try {
+        return (await membresiasApi.miMembresia()).data
+      } catch (e) {
+        if (axios.isAxiosError(e) && e.response?.status === 404) return null
+        throw e
+      }
+    },
+    retry: false,
+  })
+
   const { data: reservas = [], isLoading: loadingRes } = useQuery({
     queryKey: ['mis-reservas'],
     queryFn: () => reservasApi.mis().then((r) => r.data),
   })
+
+  const filasInscripcion = useMemo((): FilaInscripcion[] => {
+    const filas: FilaInscripcion[] = []
+
+    if (membresia) {
+      const est = estadoMembresiaBadge(membresia)
+      filas.push({
+        key: `mem-${membresia.id}`,
+        origen: 'membresia',
+        concepto: `Membresía sala de máquinas (${membresia.tipo})`,
+        desde: membresia.fecha_inicio ?? '—',
+        hasta: membresia.fecha_fin ?? '—',
+        monto: `Bs. ${membresia.precio}`,
+        estadoLabel: est.label,
+        estadoVariant: est.variant,
+      })
+    }
+
+    for (const i of inscripciones) {
+      const est = estadoInscripcionBadge(i.estado, i.pago_reportado)
+      filas.push({
+        key: `ins-${i.id}`,
+        origen: 'inscripcion',
+        concepto: conceptoInscripcion(i),
+        desde: i.mes_inicio,
+        hasta: ultimoDiaMesISO(i.mes_inicio),
+        monto: `Bs. ${i.monto}`,
+        estadoLabel: est.label,
+        estadoVariant: est.variant,
+        inscripcion: i,
+      })
+    }
+
+    return filas.sort((a, b) => {
+      const da = a.desde === '—' ? '' : a.desde
+      const db = b.desde === '—' ? '' : b.desde
+      return db.localeCompare(da)
+    })
+  }, [membresia, inscripciones])
 
   const { data: actividades = [] } = useQuery({
     queryKey: ['actividades-inscripcion', ventana?.mes_objetivo],
@@ -79,6 +205,27 @@ export function StudentReservasPage() {
       actividadesApi.list(ventana?.mes_objetivo).then((r) => r.data),
     enabled: openInscripcion && tipoInscripcion === 'actividad' && !!ventana?.mes_objetivo,
   })
+
+  const actividadesDisponibles = useMemo(() => {
+    const mes = ventana?.mes_objetivo
+    if (!mes) return []
+
+    const miasDelMes = inscripciones.filter(
+      (i) =>
+        i.tipo === 'actividad' &&
+        i.mes_inicio.slice(0, 7) === mes.slice(0, 7) &&
+        (i.estado === 1 || i.estado === 3)
+    )
+    const idsInscritos = new Set(
+      miasDelMes.map((i) => i.actividad_id).filter((id): id is number => id != null)
+    )
+    const ocupadas = actividades.filter((a) => idsInscritos.has(a.id))
+
+    return actividades.filter((a) => {
+      if (idsInscritos.has(a.id)) return false
+      return !ocupadas.some((otra) => actividadesChocan(a, otra))
+    })
+  }, [actividades, inscripciones, ventana?.mes_objetivo])
 
   const createInsMut = useMutation({
     mutationFn: (body: Record<string, unknown>) => inscripcionesApi.create(body),
@@ -121,9 +268,43 @@ export function StudentReservasPage() {
     onError: (e) => toast.error(getErrorMessage(e)),
   })
 
-  const copyRef = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success('Copiado al portapapeles')
+  const reportarPagoMut = useMutation({
+    mutationFn: (payload: {
+      id: number
+      modo: ModoReportar
+      metodo: string
+      referencia_comprobante?: string
+      notas?: string
+    }) =>
+      inscripcionesApi.reportarPago(payload.id, {
+        modo: payload.modo,
+        metodo: payload.metodo,
+        referencia_comprobante: payload.referencia_comprobante,
+        notas: payload.notas,
+      }),
+    onSuccess: (res, vars) => {
+      qc.invalidateQueries({ queryKey: ['mis-inscripciones'] })
+      qc.invalidateQueries({ queryKey: ['mis-notificaciones'] })
+      setReportarOpen(false)
+      setComprobante('')
+      setNotasReportar('')
+      if (vars.modo === 'auto') {
+        setPagoIns(null)
+        toast.success('Pago confirmado. Tu inscripción ya está activa.')
+      } else {
+        setPagoIns(res.data)
+        toast.success('Avisaste tu pago. Recepción lo revisará en breve.')
+      }
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
+  const abrirReportar = (modo: ModoReportar) => {
+    setModoReportar(modo)
+    setMetodoReportar('qr')
+    setComprobante('')
+    setNotasReportar('')
+    setReportarOpen(true)
   }
 
   return (
@@ -132,7 +313,7 @@ export function StudentReservasPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Inscripciones y reservas</h1>
           <p className="text-muted-foreground">
-            Inscríbete a actividades o sala de máquinas con pago mensual
+            Membresías, actividades y sala de máquinas — con vigencia desde / hasta
           </p>
         </div>
         <Button
@@ -167,38 +348,43 @@ export function StudentReservasPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Mis inscripciones mensuales</CardTitle>
-          <CardDescription>Actividades y sala de máquinas — pago por mes</CardDescription>
+          <CardTitle>Mis inscripciones</CardTitle>
+          <CardDescription>
+            Membresía de sala de máquinas (mensual, trimestral, anual…) e inscripciones de
+            actividades / pago mensual, con fecha desde y hasta
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {loadingIns ? (
+          {loadingIns || loadingMem ? (
             <Skeleton className="h-24 w-full" />
-          ) : inscripciones.length === 0 ? (
+          ) : filasInscripcion.length === 0 ? (
             <p className="py-6 text-center text-muted-foreground">Sin inscripciones aún</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Concepto</TableHead>
-                  <TableHead>Mes</TableHead>
+                  <TableHead>Desde</TableHead>
+                  <TableHead>Hasta</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acción</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inscripciones.map((i) => {
-                  const est = estadoInscripcionBadge(i.estado)
+                {filasInscripcion.map((fila) => {
+                  const i = fila.inscripcion
                   return (
-                    <TableRow key={i.id}>
-                      <TableCell className="font-medium">{conceptoInscripcion(i)}</TableCell>
-                      <TableCell>{i.mes_label ?? i.mes_inicio}</TableCell>
-                      <TableCell>Bs. {i.monto}</TableCell>
+                    <TableRow key={fila.key}>
+                      <TableCell className="font-medium">{fila.concepto}</TableCell>
+                      <TableCell>{fila.desde}</TableCell>
+                      <TableCell>{fila.hasta}</TableCell>
+                      <TableCell>{fila.monto}</TableCell>
                       <TableCell>
-                        <Badge variant={est.variant}>{est.label}</Badge>
+                        <Badge variant={fila.estadoVariant}>{fila.estadoLabel}</Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        {i.estado === 3 && (
+                        {i && i.estado === 3 && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => setPagoIns(i)}>
                               Ver pago / QR
@@ -221,6 +407,9 @@ export function StudentReservasPage() {
                               Cancelar
                             </Button>
                           </>
+                        )}
+                        {fila.origen === 'membresia' && (
+                          <span className="text-xs text-muted-foreground">Asignada por admin</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -323,19 +512,28 @@ export function StudentReservasPage() {
                   aria-label="Actividad"
                 >
                   <option value="">Seleccionar…</option>
-                  {actividades.map((a) => (
+                  {actividadesDisponibles.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.nombre}
-                      {a.hora_inicio ? ` (${a.hora_inicio})` : ''}
+                      {etiquetaActividad(a)}
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  Puedes estar en una o más actividades del mes. No se puede volver a habilitar la
+                  misma actividad si ya la tienes activa o pendiente, ni una que choque de horario.
+                </p>
+                {actividadesDisponibles.length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    No hay más actividades disponibles (ya inscritas, no habilitadas o con choque de
+                    horario).
+                  </p>
+                )}
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Se generará una referencia de pago y un código QR (válido 24 h). También lo recibirás
-              por notificación y correo. Debes pagar antes de que empiece el mes para ingresar al
-              gym.
+              Se generará tu referencia de pago y el QR Simple del gimnasio (válido 24 h). También
+              lo recibirás por notificación y correo. Paga con Yape, banca móvil o transferencia
+              antes de que empiece el mes.
             </p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpenInscripcion(false)}>
@@ -351,53 +549,34 @@ export function StudentReservasPage() {
       </Dialog>
 
       <Dialog open={pagoIns !== null} onOpenChange={() => setPagoIns(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Método de pago</DialogTitle>
+            <DialogTitle>Pagar con QR Simple</DialogTitle>
           </DialogHeader>
           {pagoIns && (
-            <div className="flex flex-col items-center gap-4 text-center">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-3">
+              <p className="text-center text-sm text-muted-foreground">
                 {conceptoInscripcion(pagoIns)} — {pagoIns.mes_label}
               </p>
-              <p className="text-2xl font-bold">Bs. {pagoIns.monto}</p>
-              <div className="rounded-lg bg-white p-3">
-                {pagoIns.qr_vigente ? (
-                  <QRCodeSVG value={pagoIns.qr_pago} size={180} />
-                ) : (
-                  <p className="px-4 py-8 text-sm text-muted-foreground">
-                    El QR expiró. Usa &quot;Solicitar pago&quot; para recibir uno nuevo.
-                  </p>
-                )}
-              </div>
-              <div className="w-full space-y-2 text-left text-sm">
-                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-                  <span className="font-mono">{pagoIns.referencia_pago}</span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
-                    onClick={() => copyRef(pagoIns.referencia_pago)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                {pagoIns.pago_expira_en && (
-                  <p className="text-xs text-muted-foreground">
-                    {pagoIns.qr_vigente
-                      ? `Vigente hasta ${formatExpira(pagoIns.pago_expira_en)}`
-                      : `Expiró el ${formatExpira(pagoIns.pago_expira_en)}`}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Muestra este QR o referencia en recepción. También llegó a tus notificaciones y
-                  correo. Sin pago confirmado no podrás ingresar al gimnasio.
+              <QrPagoPanel ins={pagoIns} org={org} variant="student" />
+              {pagoIns.pago_reportado && (
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Ya avisaste este pago. Recepción lo confirmará cuando verifique el comprobante.
                 </p>
-              </div>
+              )}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {pagoIns && pagoIns.qr_vigente && !pagoIns.pago_reportado && (
+              <div className="grid w-full gap-2 sm:grid-cols-2">
+                <Button variant="default" onClick={() => abrirReportar('auto')}>
+                  Ya pagué — activar ya
+                </Button>
+                <Button variant="secondary" onClick={() => abrirReportar('notificar')}>
+                  Avisar a recepción
+                </Button>
+              </div>
+            )}
             {pagoIns && !pagoIns.qr_vigente && (
               <Button
                 variant="secondary"
@@ -407,7 +586,81 @@ export function StudentReservasPage() {
                 Solicitar pago de nuevo
               </Button>
             )}
-            <Button onClick={() => setPagoIns(null)}>Entendido</Button>
+            <Button variant="outline" onClick={() => setPagoIns(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportarOpen} onOpenChange={setReportarOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {modoReportar === 'auto' ? 'Confirmar pago automáticamente' : 'Avisar pago a recepción'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {modoReportar === 'auto'
+                ? 'Tu inscripción se activará de inmediato. Usa esta opción solo si ya transferiste o pagaste con QR.'
+                : 'Recepción verá tu aviso en Pagos y confirmará al verificar el comprobante. Tu inscripción sigue pendiente hasta entonces.'}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="metodo-reportar">Método usado</Label>
+              <select
+                id="metodo-reportar"
+                className={selectClassName}
+                value={metodoReportar}
+                onChange={(e) => setMetodoReportar(e.target.value)}
+              >
+                <option value="qr">QR Simple</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta POS</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="comprobante-reportar">
+                Nº de operación / comprobante {modoReportar === 'auto' ? '(recomendado)' : '(opcional)'}
+              </Label>
+              <Input
+                id="comprobante-reportar"
+                value={comprobante}
+                onChange={(e) => setComprobante(e.target.value)}
+                placeholder="Ej. ID de Yape o Nº transferencia"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notas-reportar">Notas (opcional)</Label>
+              <Input
+                id="notas-reportar"
+                value={notasReportar}
+                onChange={(e) => setNotasReportar(e.target.value)}
+                placeholder="Detalle breve"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setReportarOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={reportarPagoMut.isPending || !pagoIns}
+              onClick={() => {
+                if (!pagoIns) return
+                reportarPagoMut.mutate({
+                  id: pagoIns.id,
+                  modo: modoReportar,
+                  metodo: metodoReportar,
+                  referencia_comprobante: comprobante.trim() || undefined,
+                  notas: notasReportar.trim() || undefined,
+                })
+              }}
+            >
+              {reportarPagoMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {modoReportar === 'auto' ? 'Confirmar e activar' : 'Enviar aviso'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

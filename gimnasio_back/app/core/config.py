@@ -38,10 +38,14 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str = "noreply@gympro.com"
     EMAILS_FROM_NAME: str = "UAGRM-GYM"
+    # Si SMTP falla o no está configurado, imprime el correo en la consola del backend (solo desarrollo)
+    EMAIL_DEV_LOG_TO_CONSOLE: bool = True
 
-    # Horario UAGRM-GYM (7:00 – 19:00)
+    # Horario UAGRM-GYM (7:00:00 – 19:00:00). Las horas enteras se mantienen por compatibilidad.
     GYM_OPEN_HOUR: int = 7
     GYM_CLOSE_HOUR: int = 19
+    GYM_OPEN_TIME: str = "07:00:00"
+    GYM_CLOSE_TIME: str = "19:00:00"
     CAPACIDAD_SALA_ACTIVIDAD: int = 20
     CAPACIDAD_SALA_MAQUINAS: int = 30
     MIN_COACHES_MANANA: int = 2

@@ -83,10 +83,12 @@ async def _coaches_vigentes(
 
 @router.get("/config", response_model=ConfigGymResponse)
 async def config_gym(_=Depends(get_current_usuario)):
+    from app.services.scheduling_service import gym_close_display, gym_open_display
+
     bloques = [hi for hi, _ in bloques_gym()]
     return ConfigGymResponse(
-        hora_apertura=f"{settings.GYM_OPEN_HOUR:02d}:00",
-        hora_cierre=f"{settings.GYM_CLOSE_HOUR:02d}:00",
+        hora_apertura=gym_open_display(),
+        hora_cierre=gym_close_display(),
         bloques=bloques,
         turnos_coach=turnos_coach_maquinas(),
         capacidad_actividad=settings.CAPACIDAD_SALA_ACTIVIDAD,

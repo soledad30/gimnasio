@@ -22,6 +22,31 @@ export interface ResetPasswordResult {
   enviado_sms?: boolean
 }
 
+export interface PermisoInfo {
+  codigo: string
+  nombre: string
+  descripcion: string
+  categoria: string
+}
+
+export interface RolResumen {
+  codigo: string
+  nombre: string
+  descripcion: string
+  editable: boolean
+  permisos_activos: number
+  permisos_total: number
+}
+
+export interface RolPermisosDetalle {
+  codigo: string
+  nombre: string
+  descripcion: string
+  editable: boolean
+  permisos: string[]
+  catalogo: PermisoInfo[]
+}
+
 export interface TokenResponse {
   access_token: string
   refresh_token: string
@@ -67,6 +92,29 @@ export interface ReporteAccesos {
   accesos_concedidos: number
   accesos_denegados: number
   tasa_denegacion_pct: number
+}
+
+export interface ReporteGraficos {
+  fecha_inicio: string
+  fecha_fin: string
+  accesos_por_dia: { fecha: string; concedidos: number; denegados: number; total: number }[]
+  resultado_accesos: { nombre: string; valor: number }[]
+  motivos_denegacion: { motivo: string; count: number }[]
+  accesos_por_hora: { hora: number; count: number }[]
+  ingresos_por_dia: { fecha: string; monto: number }[]
+  pagos_por_metodo: { metodo: string; monto: number; count: number }[]
+  membresias_por_plan: { plan: string; count: number }[]
+  top_carreras: { carrera: string; accesos: number }[]
+  tasa_denegacion_por_dia: { fecha: string; tasa: number }[]
+  resumen_diario: {
+    fecha: string
+    escaneos: number
+    concedidos: number
+    denegados: number
+    ingresos: number
+    tasa_denegacion_pct: number
+  }[]
+  total_ingresos: number
 }
 
 export interface Estudiante {
@@ -169,6 +217,29 @@ export interface ConfigGym {
   min_coaches_manana: number
   min_coaches_tarde: number
   min_entrenadores_actividad: number
+}
+
+export interface ConfiguracionOrganizacion {
+  nombre_organizacion?: string | null
+  ubicacion?: string | null
+  telefono_contacto?: string | null
+  email_contacto?: string | null
+  sitio_web?: string | null
+  facebook?: string | null
+  instagram?: string | null
+  whatsapp?: string | null
+  tiktok?: string | null
+  youtube?: string | null
+  banco_nombre?: string | null
+  banco_cuenta?: string | null
+  banco_titular?: string | null
+  qr_pago_contenido?: string | null
+  gym_open_time?: string | null
+  gym_close_time?: string | null
+  gym_open_hour?: number | null
+  gym_close_hour?: number | null
+  dias_ventana_inscripcion?: number | null
+  updated_at?: string | null
 }
 
 export interface AsignacionInstructor {
@@ -355,7 +426,9 @@ export interface AlertaSeguridad {
 
 export interface Notificacion {
   id: number
-  estudiante_id: number
+  estudiante_id?: number | null
+  usuario_id?: number | null
+  destinatario?: string | null
   fecha?: string | null
   titulo: string
   mensaje: string
@@ -388,11 +461,18 @@ export interface Inscripcion {
   monto: string
   referencia_pago: string
   qr_pago: string
+  qr_cobro?: string | null
+  usa_qr_simple?: boolean
   estado: number
   estado_label?: string | null
   pago_id?: number | null
   pago_expira_en?: string | null
   qr_vigente?: boolean
+  pago_reportado?: boolean
+  pago_reportado_en?: string | null
+  pago_reportado_metodo?: string | null
+  pago_reportado_comprobante?: string | null
+  pago_reportado_notas?: string | null
   creado_por_admin: boolean
   created_at: string
 }
@@ -427,6 +507,7 @@ export interface Membresia {
   id: number
   estudiante_id: number
   estudiante_nombre?: string | null
+  registro_universitario?: string | null
   tipo: string
   precio: string
   duracion: number

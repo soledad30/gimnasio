@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import date, time, datetime
 from decimal import Decimal
@@ -7,10 +7,34 @@ from decimal import Decimal
 # ── Acceso ────────────────────────────────────────────────────────────────────
 class NFCScanRequest(BaseModel):
     nfc_uid: str
+    modo: str = Field(
+        "auto",
+        description="auto = alterna entrada/salida | entrada | salida",
+    )
+
+    @field_validator("modo")
+    @classmethod
+    def validar_modo_acceso(cls, v: str) -> str:
+        m = (v or "auto").strip().lower()
+        if m not in ("auto", "entrada", "salida"):
+            raise ValueError("modo debe ser auto, entrada o salida")
+        return m
 
 
 class AccesoManualRequest(BaseModel):
     codigo: str = Field(..., min_length=2, max_length=100)
+    modo: str = Field(
+        "auto",
+        description="auto = alterna entrada/salida | entrada | salida",
+    )
+
+    @field_validator("modo")
+    @classmethod
+    def validar_modo_acceso(cls, v: str) -> str:
+        m = (v or "auto").strip().lower()
+        if m not in ("auto", "entrada", "salida"):
+            raise ValueError("modo debe ser auto, entrada o salida")
+        return m
 
 
 class AccesoResponse(BaseModel):
@@ -98,18 +122,27 @@ class MembresiaCreate(BaseModel):
     tipo: str
     precio: Decimal = Field(..., gt=0)
     duracion: int = Field(..., gt=0, description="Duración en días")
+    fecha_inicio: Optional[date] = Field(
+        None,
+        description="Desde qué fecha registra el admin el pago/vigencia (solo admin). Por defecto: hoy.",
+    )
 
 
 class MembresiaUpdate(BaseModel):
     tipo: Optional[str] = None
     precio: Optional[Decimal] = None
     duracion: Optional[int] = None
+    fecha_inicio: Optional[date] = Field(
+        None,
+        description="Desde qué fecha aplica la renovación (solo admin).",
+    )
 
 
 class MembresiaResponse(BaseModel):
     id: int
     estudiante_id: int
     estudiante_nombre: Optional[str] = None
+    registro_universitario: Optional[str] = None
     tipo: str
     precio: Decimal
     duracion: int
@@ -130,9 +163,33 @@ class NotificacionCreate(BaseModel):
     fecha: Optional[date] = None
 
 
+class NotificacionMasivaCreate(BaseModel):
+    """
+    alcance:
+      - estudiante: un alumno (requiere estudiante_id)
+      - todos_estudiantes: todos los estudiantes
+      - recepcion | instructor | admin: usuarios con ese rol
+      - todos: estudiantes + recepción + instructores + admins
+    """
+    alcance: str
+    titulo: str
+    mensaje: str
+    tipo: Optional[str] = "aviso"
+    estudiante_id: Optional[int] = None
+    fecha: Optional[date] = None
+
+
+class NotificacionMasivaResult(BaseModel):
+    creadas: int
+    alcance: str
+    destinatarios: int
+
+
 class NotificacionResponse(BaseModel):
     id: int
-    estudiante_id: int
+    estudiante_id: Optional[int] = None
+    usuario_id: Optional[int] = None
+    destinatario: Optional[str] = None
     fecha: Optional[date]
     titulo: str
     mensaje: str
@@ -449,6 +506,34 @@ class InscripcionConfirmarPago(BaseModel):
     notas: Optional[str] = None
 
 
+class InscripcionReportarPago(BaseModel):
+    """Estudiante: auto confirma la inscripción, o solo avisa a recepción."""
+
+    modo: str = Field(
+        ...,
+        description="auto = confirmar pago automáticamente | notificar = avisar a recepción",
+    )
+    metodo: str = "qr"
+    referencia_comprobante: Optional[str] = Field(None, max_length=120)
+    notas: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("modo")
+    @classmethod
+    def validar_modo(cls, v: str) -> str:
+        m = (v or "").strip().lower()
+        if m not in ("auto", "notificar"):
+            raise ValueError("modo debe ser 'auto' o 'notificar'")
+        return m
+
+    @field_validator("metodo")
+    @classmethod
+    def validar_metodo(cls, v: str) -> str:
+        m = (v or "qr").strip().lower()
+        if m not in ("qr", "transferencia", "efectivo", "tarjeta"):
+            raise ValueError("método de pago inválido")
+        return m
+
+
 class InscripcionResponse(BaseModel):
     id: int
     estudiante_id: int
@@ -461,11 +546,18 @@ class InscripcionResponse(BaseModel):
     monto: Decimal
     referencia_pago: str
     qr_pago: str
+    qr_cobro: Optional[str] = None
+    usa_qr_simple: bool = False
     estado: int
     estado_label: Optional[str] = None
     pago_id: Optional[int] = None
     pago_expira_en: Optional[datetime] = None
     qr_vigente: bool = True
+    pago_reportado: bool = False
+    pago_reportado_en: Optional[datetime] = None
+    pago_reportado_metodo: Optional[str] = None
+    pago_reportado_comprobante: Optional[str] = None
+    pago_reportado_notas: Optional[str] = None
     creado_por_admin: bool = False
     created_at: datetime
 

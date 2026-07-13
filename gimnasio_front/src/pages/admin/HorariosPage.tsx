@@ -197,7 +197,6 @@ export function HorariosPage() {
   }, [salasSemanal, salaVistaId])
 
   const salaMaquinas = salas.find((s) => s.tipo === 'maquinas')
-  const bloques = config?.bloques ?? []
   const turnosCoach: TurnoCoach[] = config?.turnos_coach ?? []
 
   const coachesTurno = useMemo(() => {

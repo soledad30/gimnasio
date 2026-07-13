@@ -82,21 +82,43 @@ class AccesoService(BaseService[Acceso]):
         )
         return result.scalars().first()
 
+    async def _tuvo_visita_cerrada_hoy(self, estudiante_id: int, fecha_str: str) -> bool:
+        """Ya ingresó y salió hoy → no puede volver a entrar el mismo día."""
+        result = await self.db.execute(
+            select(Acceso.id).where(
+                and_(
+                    Acceso.estudiante_id == estudiante_id,
+                    Acceso.fecha == fecha_str,
+                    Acceso.acceso_concedido.is_(True),
+                    Acceso.hora_entrada.isnot(None),
+                    Acceso.hora_salida.isnot(None),
+                )
+            ).limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
     async def _membresia_activa(self, estudiante: Estudiante) -> tuple[bool, str]:
+        """Membresía = acceso a sala de máquinas (plan admin o pago mensual de máquinas)."""
         hoy = date.today()
         if (
             estudiante.fechainicio_membresia is not None
             and estudiante.fechafin_membresia is not None
             and estudiante.fechainicio_membresia <= hoy <= estudiante.fechafin_membresia
         ):
-            return True, "activa"
-        estado = "sin membresía" if not estudiante.membresia else "membresía vencida"
+            return True, "membresía sala de máquinas"
+        estado = "sin membresía de máquinas" if not estudiante.membresia else "membresía de máquinas vencida"
         return False, estado
 
-    async def _acceso_por_inscripcion(self, estudiante: Estudiante) -> tuple[bool, str]:
-        from app.services.inscripcion_service import estudiante_habilitado_hoy
+    async def _acceso_por_inscripcion(self, estudiante: Estudiante) -> tuple[bool, str, bool, bool]:
+        from app.services.inscripcion_service import entitlements_acceso_hoy
 
-        return await estudiante_habilitado_hoy(self.db, estudiante.id)
+        info = await entitlements_acceso_hoy(self.db, estudiante.id)
+        return (
+            bool(info["ok"]),
+            str(info["estado"]),
+            bool(info["maquinas"]),
+            bool(info["actividad"]),
+        )
 
     async def _registrar_denegado(
         self,
@@ -117,15 +139,26 @@ class AccesoService(BaseService[Acceso]):
         )
         self.db.add(acceso)
         await self.db.commit()
-        if estudiante and "membresía" in motivo.lower():
+        motivo_l = motivo.lower()
+        if estudiante and (
+            "máquinas" in motivo_l
+            or "maquinas" in motivo_l
+            or "membresía" in motivo_l
+            or "membresia" in motivo_l
+        ):
             mensaje = (
                 f"Acceso denegado: {motivo}. "
-                "Asigna un plan en Admin → Membresías para habilitar el ingreso."
+                "Para sala de máquinas: asigna/renueva membresía o confirma el pago de inscripción de máquinas."
             )
-        elif estudiante and "inscripción" in motivo.lower():
+        elif estudiante and "actividad" in motivo_l:
             mensaje = (
                 f"Acceso denegado: {motivo}. "
-                "Inscríbete y paga tu cuota mensual (actividad o sala de máquinas) para ingresar."
+                "Para sala de actividades: inscríbete y paga la cuota mensual de la clase."
+            )
+        elif estudiante and "inscripción" in motivo_l:
+            mensaje = (
+                f"Acceso denegado: {motivo}. "
+                "Paga membresía (máquinas) o inscripción de actividad para ingresar."
             )
         elif estudiante:
             mensaje = f"Acceso denegado: {motivo}"
@@ -149,22 +182,22 @@ class AccesoService(BaseService[Acceso]):
         estudiante: Estudiante,
         *,
         nfc_uid: Optional[str] = None,
+        modo: str = "auto",
     ) -> NFCScanResponse:
+        """
+        Un solo control ingreso/salida:
+        1) Primer escaneo del día → entrada (si tiene membresía/inscripción).
+        2) Segundo escaneo (con visita abierta) → salida.
+        3) Tras salir → denegado (solo 1 ingreso por día).
+        """
         now = datetime.now(timezone.utc)
         hora_int = _hora_int(now)
         fecha_str = now.strftime("%Y-%m-%d")
-
-        activa, estado = await self._acceso_por_inscripcion(estudiante)
-        if not activa:
-            return await self._registrar_denegado(
-                fecha_str=fecha_str,
-                hora_int=hora_int,
-                motivo=estado,
-                estudiante=estudiante,
-                nfc_uid=nfc_uid,
-            )
+        _ = (modo or "auto").strip().lower()  # compat API; siempre flujo unificado
 
         abierto = await self._get_acceso_abierto_hoy(estudiante.id, fecha_str)
+
+        # 2) Ya está dentro → registrar salida
         if abierto:
             abierto.hora_salida = hora_int
             if abierto.hora_entrada:
@@ -177,11 +210,54 @@ class AccesoService(BaseService[Acceso]):
                 nombre=estudiante.nombre,
                 carrera=estudiante.carrera,
                 registro_universitario=estudiante.registro_univercotario,
-                estado_membresia="activa",
+                estado_membresia="salida registrada",
                 acceso_id=abierto.id,
                 tipo_movimiento="salida",
-                mensaje=f"Hasta luego, {estudiante.nombre}",
+                mensaje=f"Hasta luego, {estudiante.nombre}. Salida registrada.",
             )
+
+        # 3) Ya ingresó y salió hoy → no puede volver a entrar
+        if await self._tuvo_visita_cerrada_hoy(estudiante.id, fecha_str):
+            return await self._registrar_denegado(
+                fecha_str=fecha_str,
+                hora_int=hora_int,
+                motivo="ya registró entrada y salida hoy; solo se permite un ingreso por día",
+                estudiante=estudiante,
+                nfc_uid=nfc_uid,
+            )
+
+        # 1) Primera vez del día → validar y registrar entrada
+        mem_ok, mem_estado = await self._membresia_activa(estudiante)
+        _insc_ok, insc_estado, insc_maq, insc_act = await self._acceso_por_inscripcion(estudiante)
+        acceso_maquinas = mem_ok or insc_maq
+        acceso_actividades = insc_act
+
+        if not acceso_maquinas and not acceso_actividades:
+            if mem_estado.endswith("vencida") and "futuro" not in insc_estado:
+                motivo = mem_estado
+            elif insc_estado and insc_estado != "sin inscripción pagada este mes":
+                motivo = insc_estado
+            elif not mem_ok and not insc_maq and not insc_act:
+                motivo = (
+                    "sin acceso: necesita membresía/pago de sala de máquinas "
+                    "o inscripción pagada de actividad"
+                )
+            else:
+                motivo = insc_estado
+            return await self._registrar_denegado(
+                fecha_str=fecha_str,
+                hora_int=hora_int,
+                motivo=motivo,
+                estudiante=estudiante,
+                nfc_uid=nfc_uid,
+            )
+
+        partes = []
+        if acceso_maquinas:
+            partes.append("máquinas")
+        if acceso_actividades:
+            partes.append("actividades")
+        estado_acceso = " + ".join(partes)
 
         acceso = Acceso(
             estudiante_id=estudiante.id,
@@ -199,13 +275,13 @@ class AccesoService(BaseService[Acceso]):
             nombre=estudiante.nombre,
             carrera=estudiante.carrera,
             registro_universitario=estudiante.registro_univercotario,
-            estado_membresia="activa",
+            estado_membresia=estado_acceso,
             acceso_id=acceso.id,
             tipo_movimiento="entrada",
-            mensaje=f"¡Bienvenido/a, {estudiante.nombre}!",
+            mensaje=f"¡Bienvenido/a, {estudiante.nombre}! Acceso: {estado_acceso}",
         )
 
-    async def procesar_nfc(self, nfc_uid: str) -> NFCScanResponse:
+    async def procesar_nfc(self, nfc_uid: str, modo: str = "auto") -> NFCScanResponse:
         estudiante = await EstudianteService(self.db).get_by_nfc(nfc_uid)
         if not estudiante:
             now = datetime.now(timezone.utc)
@@ -215,9 +291,9 @@ class AccesoService(BaseService[Acceso]):
                 motivo="NFC no registrado en el sistema",
                 nfc_uid=nfc_uid,
             )
-        return await self._procesar_estudiante(estudiante, nfc_uid=nfc_uid)
+        return await self._procesar_estudiante(estudiante, nfc_uid=nfc_uid, modo=modo)
 
-    async def procesar_manual(self, codigo: str) -> NFCScanResponse:
+    async def procesar_manual(self, codigo: str, modo: str = "auto") -> NFCScanResponse:
         codigo = normalizar_codigo_acceso(codigo)
         result = await self.db.execute(
             select(Estudiante)
@@ -239,7 +315,7 @@ class AccesoService(BaseService[Acceso]):
                 hora_int=_hora_int(now),
                 motivo="Código no registrado en el sistema",
             )
-        return await self._procesar_estudiante(estudiante)
+        return await self._procesar_estudiante(estudiante, modo=modo)
 
     async def get_historial(self, skip: int = 0, limit: int = 50) -> list[AccesoResponse]:
         result = await self.db.execute(

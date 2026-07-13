@@ -21,8 +21,8 @@ router = APIRouter()
 
 @router.post("/nfc-scan", response_model=NFCScanResponse)
 async def nfc_scan(payload: NFCScanRequest, db: AsyncSession = Depends(get_db)):
-    """Lector NFC en la puerta. Alterna entrada/salida automáticamente."""
-    return await AccesoService(db).procesar_nfc(payload.nfc_uid)
+    """Lector NFC. modo=auto alterna; entrada/salida fuerzan el movimiento."""
+    return await AccesoService(db).procesar_nfc(payload.nfc_uid, modo=payload.modo)
 
 
 @router.post("/manual", response_model=NFCScanResponse)
@@ -32,7 +32,7 @@ async def acceso_manual(
     _=Depends(get_current_staff),
 ):
     """Registro manual por QR, código de acceso, registro universitario o cédula."""
-    return await AccesoService(db).procesar_manual(payload.codigo)
+    return await AccesoService(db).procesar_manual(payload.codigo, modo=payload.modo)
 
 
 @router.post("/qr-scan", response_model=NFCScanResponse)
@@ -42,7 +42,7 @@ async def qr_scan(
     _=Depends(get_current_staff),
 ):
     """Escaneo de QR del estudiante (mismo formato que acceso manual)."""
-    return await AccesoService(db).procesar_manual(payload.codigo)
+    return await AccesoService(db).procesar_manual(payload.codigo, modo=payload.modo)
 
 
 @router.get("/mi-qr", response_model=CodigoAccesoResponse)

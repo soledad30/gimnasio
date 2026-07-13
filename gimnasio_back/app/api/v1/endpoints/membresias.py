@@ -46,7 +46,7 @@ async def mi_membresia(
     )
     mem = result.scalar_one_or_none()
     if not mem:
-        raise HTTPException(status_code=404, detail="No tienes membresía activa")
+        raise HTTPException(status_code=404, detail="No tienes un plan de membresía asignado")
     return to_membresia_response(mem)
 
 
@@ -84,9 +84,5 @@ async def eliminar_membresia(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(select(Membresia).where(Membresia.id == membresia_id))
-    mem = result.scalar_one_or_none()
-    if not mem:
+    if not await MembresiaService(db).eliminar(membresia_id):
         raise HTTPException(status_code=404, detail="Membresía no encontrada")
-    await db.delete(mem)
-    await db.commit()

@@ -13,21 +13,42 @@ export function RowActions({ onView, onEdit, onDelete, extra }: RowActionsProps)
     <div className="flex flex-wrap items-center justify-end gap-1.5">
       {extra}
       {onView && (
-        <Button type="button" variant="secondary" size="sm" onClick={onView}>
-          <Eye className="h-4 w-4 shrink-0" />
-          Ver
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onView}
+          title="Ver"
+          aria-label="Ver"
+        >
+          <Eye className="h-4 w-4" />
         </Button>
       )}
       {onEdit && (
-        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-          <Pencil className="h-4 w-4 shrink-0" />
-          Editar
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onEdit}
+          title="Editar"
+          aria-label="Editar"
+        >
+          <Pencil className="h-4 w-4" />
         </Button>
       )}
       {onDelete && (
-        <Button type="button" variant="destructive" size="sm" onClick={onDelete}>
-          <Trash2 className="h-4 w-4 shrink-0" />
-          Eliminar
+        <Button
+          type="button"
+          variant="destructive"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onDelete}
+          title="Eliminar"
+          aria-label="Eliminar"
+        >
+          <Trash2 className="h-4 w-4" />
         </Button>
       )}
     </div>

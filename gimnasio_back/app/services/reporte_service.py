@@ -1,5 +1,6 @@
 import csv
 import io
+from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List
 
@@ -97,6 +98,159 @@ class ReporteService:
             "accesos_concedidos": concedidos,
             "accesos_denegados": denegados,
             "tasa_denegacion_pct": round((denegados / total * 100) if total else 0, 2),
+        }
+
+    async def reporte_graficos(self, fecha_inicio: date, fecha_fin: date) -> Dict[str, Any]:
+        hoy = date.today()
+
+        accesos_result = await self.db.execute(
+            select(Acceso)
+            .options(selectinload(Acceso.estudiante))
+            .where(
+                and_(
+                    func.date(Acceso.created_at) >= fecha_inicio,
+                    func.date(Acceso.created_at) <= fecha_fin,
+                )
+            )
+        )
+        registros = accesos_result.scalars().all()
+
+        pagos_result = await self.db.execute(
+            select(Pago).where(and_(Pago.fecha >= fecha_inicio, Pago.fecha <= fecha_fin))
+        )
+        pagos = pagos_result.scalars().all()
+
+        membresias_result = await self.db.execute(
+            select(Membresia.tipo, func.count(Membresia.id))
+            .join(Estudiante, Membresia.estudiante_id == Estudiante.id)
+            .where(
+                and_(
+                    Estudiante.fechainicio_membresia <= hoy,
+                    Estudiante.fechafin_membresia >= hoy,
+                )
+            )
+            .group_by(Membresia.tipo)
+        )
+        membresias_por_plan = [
+            {"plan": row[0], "count": row[1]} for row in membresias_result.all()
+        ]
+
+        dias: List[date] = []
+        cursor = fecha_inicio
+        while cursor <= fecha_fin:
+            dias.append(cursor)
+            cursor += timedelta(days=1)
+
+        accesos_por_dia_map: Dict[str, Dict[str, Any]] = {
+            d.isoformat(): {
+                "fecha": d.isoformat(),
+                "concedidos": 0,
+                "denegados": 0,
+                "total": 0,
+            }
+            for d in dias
+        }
+        ingresos_por_dia_map: Dict[str, float] = {d.isoformat(): 0.0 for d in dias}
+        motivos_map: Dict[str, int] = defaultdict(int)
+        horas_map: Dict[int, int] = defaultdict(int)
+        carreras_map: Dict[str, int] = defaultdict(int)
+
+        for acceso in registros:
+            fecha_key = acceso.created_at.date().isoformat()
+            if fecha_key not in accesos_por_dia_map:
+                accesos_por_dia_map[fecha_key] = {
+                    "fecha": fecha_key,
+                    "concedidos": 0,
+                    "denegados": 0,
+                    "total": 0,
+                }
+            bucket = accesos_por_dia_map[fecha_key]
+            bucket["total"] += 1
+            if acceso.acceso_concedido:
+                bucket["concedidos"] += 1
+            else:
+                bucket["denegados"] += 1
+                motivo = acceso.motivo_denegacion or "Sin especificar"
+                motivos_map[motivo] += 1
+
+            hora_raw = acceso.hora_entrada or acceso.hora_salida
+            if hora_raw is not None:
+                hora = int(str(hora_raw).zfill(4)[:2])
+            elif acceso.created_at:
+                hora = acceso.created_at.hour
+            else:
+                hora = 0
+            horas_map[hora] += 1
+
+            if acceso.estudiante and acceso.estudiante.carrera:
+                carreras_map[acceso.estudiante.carrera] += 1
+
+        pagos_por_metodo_map: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"metodo": "", "monto": 0.0, "count": 0}
+        )
+        for pago in pagos:
+            fecha_key = pago.fecha.isoformat()
+            ingresos_por_dia_map[fecha_key] = ingresos_por_dia_map.get(fecha_key, 0.0) + float(pago.monto)
+            metodo_key = pago.metodo or "otro"
+            bucket = pagos_por_metodo_map[metodo_key]
+            bucket["metodo"] = metodo_key
+            bucket["monto"] += float(pago.monto)
+            bucket["count"] += 1
+
+        accesos_por_dia = [accesos_por_dia_map[d.isoformat()] for d in dias]
+        ingresos_por_dia = [
+            {"fecha": d.isoformat(), "monto": round(ingresos_por_dia_map.get(d.isoformat(), 0.0), 2)}
+            for d in dias
+        ]
+        tasa_denegacion_por_dia = [
+            {
+                "fecha": row["fecha"],
+                "tasa": round((row["denegados"] / row["total"] * 100) if row["total"] else 0, 2),
+            }
+            for row in accesos_por_dia
+        ]
+        resumen_diario = [
+            {
+                "fecha": row["fecha"],
+                "escaneos": row["total"],
+                "concedidos": row["concedidos"],
+                "denegados": row["denegados"],
+                "ingresos": ingresos_por_dia_map.get(row["fecha"], 0.0),
+                "tasa_denegacion_pct": round(
+                    (row["denegados"] / row["total"] * 100) if row["total"] else 0, 2
+                ),
+            }
+            for row in accesos_por_dia
+        ]
+
+        total_concedidos = sum(r["concedidos"] for r in accesos_por_dia)
+        total_denegados = sum(r["denegados"] for r in accesos_por_dia)
+
+        return {
+            "fecha_inicio": fecha_inicio.isoformat(),
+            "fecha_fin": fecha_fin.isoformat(),
+            "accesos_por_dia": accesos_por_dia,
+            "resultado_accesos": [
+                {"nombre": "Concedidos", "valor": total_concedidos},
+                {"nombre": "Denegados", "valor": total_denegados},
+            ],
+            "motivos_denegacion": [
+                {"motivo": motivo, "count": count}
+                for motivo, count in sorted(motivos_map.items(), key=lambda x: -x[1])
+            ],
+            "accesos_por_hora": [
+                {"hora": h, "count": horas_map.get(h, 0)} for h in range(6, 23)
+            ],
+            "ingresos_por_dia": ingresos_por_dia,
+            "pagos_por_metodo": list(pagos_por_metodo_map.values()),
+            "membresias_por_plan": membresias_por_plan,
+            "top_carreras": [
+                {"carrera": carrera, "accesos": count}
+                for carrera, count in sorted(carreras_map.items(), key=lambda x: -x[1])[:8]
+            ],
+            "tasa_denegacion_por_dia": tasa_denegacion_por_dia,
+            "resumen_diario": resumen_diario,
+            "total_ingresos": round(sum(float(p.monto) for p in pagos), 2),
         }
 
     async def export_accesos_csv(self, fecha_inicio: date, fecha_fin: date) -> StreamingResponse:

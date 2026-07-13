@@ -2,7 +2,7 @@ import secrets
 from typing import List, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_password_hash
@@ -34,12 +34,41 @@ class EstudianteService(BaseService[Estudiante]):
         super().__init__(Estudiante, db)
 
     async def get_by_nfc(self, nfc_uid: str) -> Optional[Estudiante]:
-        result = await self.db.execute(select(Estudiante).where(Estudiante.nfc_uid == nfc_uid))
+        from sqlalchemy.orm import selectinload
+
+        result = await self.db.execute(
+            select(Estudiante)
+            .options(selectinload(Estudiante.membresia))
+            .where(Estudiante.nfc_uid == nfc_uid)
+        )
         return result.scalar_one_or_none()
 
     async def get_by_usuario_id(self, usuario_id: int) -> Optional[Estudiante]:
         result = await self.db.execute(select(Estudiante).where(Estudiante.usuario_id == usuario_id))
         return result.scalar_one_or_none()
+
+    async def list_estudiantes(
+        self,
+        skip: int = 0,
+        limit: int = 500,
+        q: Optional[str] = None,
+    ) -> List[Estudiante]:
+        query = select(Estudiante)
+        term = (q or "").strip()
+        if term:
+            pattern = f"%{term}%"
+            query = query.where(
+                or_(
+                    Estudiante.nombre.ilike(pattern),
+                    Estudiante.email.ilike(pattern),
+                    Estudiante.telefono.ilike(pattern),
+                    Estudiante.registro_univercotario.ilike(pattern),
+                    Estudiante.cs.ilike(pattern),
+                )
+            )
+        query = query.order_by(Estudiante.id.desc()).offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     async def _codigo_disponible(self, codigo: str) -> bool:
         result = await self.db.execute(select(Estudiante).where(Estudiante.codigo_acceso == codigo))

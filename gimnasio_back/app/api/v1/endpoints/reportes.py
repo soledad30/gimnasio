@@ -28,6 +28,16 @@ async def reporte_accesos(
     return await ReporteService(db).reporte_accesos(fecha_inicio, fecha_fin)
 
 
+@router.get("/graficos")
+async def reporte_graficos(
+    fecha_inicio: date,
+    fecha_fin: date,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    return await ReporteService(db).reporte_graficos(fecha_inicio, fecha_fin)
+
+
 @router.get("/export/accesos")
 async def export_accesos(
     fecha_inicio: date,

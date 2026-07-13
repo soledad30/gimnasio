@@ -50,7 +50,7 @@ export function StudentHomePage() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
             <CreditCard className="h-5 w-5 text-primary" />
-            Mi membresía
+            Membresía — sala de máquinas
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -67,10 +67,15 @@ export function StudentHomePage() {
                   Vigente: {membresia.fecha_inicio} → {membresia.fecha_fin}
                 </span>
               )}
+              <p className="w-full text-xs text-muted-foreground">
+                Habilita QR, NFC e ingreso a sala de máquinas. Las clases requieren inscripción de
+                actividad.
+              </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No tienes membresía activa. Acércate a recepción para activar tu acceso.
+              Sin membresía de máquinas. Paga la mensualidad de sala de máquinas o acércate a
+              recepción. Para clases, inscríbete en actividades.
             </p>
           )}
         </CardContent>

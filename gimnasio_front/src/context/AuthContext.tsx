@@ -30,8 +30,11 @@ interface AuthContextValue {
     registro_univercotario?: string
     carrera?: string
   }) => Promise<PerfilResponse>
+  reload: () => Promise<void>
   logout: () => void
   isAdmin: boolean
+  isRecepcion: boolean
+  isStaff: boolean
   isInstructor: boolean
   homePath: string
 }
@@ -126,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       register,
+      reload: loadUser,
       logout,
       isAdmin: rol === 'admin',
       isRecepcion: rol === 'recepcion',
@@ -133,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInstructor: rol === 'instructor',
       homePath: rol ? homePathForRol(rol) : '/app',
     }),
-    [user, perfil, rol, loading]
+    [user, perfil, rol, loading, loadUser]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

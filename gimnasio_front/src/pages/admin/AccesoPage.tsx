@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Nfc, QrCode, Radio, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { accesoApi } from '@/api/services'
 import type { Acceso, NfcScanResult } from '@/types'
+import { QrCameraScanner } from '@/components/acceso/QrCameraScanner'
 import { UserAvatar } from '@/components/acceso/UserAvatar'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -57,7 +58,16 @@ export function AccesoPage() {
 
   const sinMembresia =
     last?.motivo_denegacion?.toLowerCase().includes('membresía') ||
-    last?.motivo_denegacion?.toLowerCase().includes('membresia')
+    last?.motivo_denegacion?.toLowerCase().includes('membresia') ||
+    last?.motivo_denegacion?.toLowerCase().includes('máquinas') ||
+    last?.motivo_denegacion?.toLowerCase().includes('maquinas')
+  const sinInscripcion =
+    last?.motivo_denegacion?.toLowerCase().includes('inscripción') ||
+    last?.motivo_denegacion?.toLowerCase().includes('inscripcion') ||
+    last?.motivo_denegacion?.toLowerCase().includes('actividad')
+  const yaVisitoHoy =
+    last?.motivo_denegacion?.toLowerCase().includes('un ingreso por día') ||
+    last?.motivo_denegacion?.toLowerCase().includes('entrada y salida hoy')
 
   const { data: monitor, isLoading: loadingMonitor } = useQuery({
     queryKey: ['acceso-monitor'],
@@ -80,22 +90,19 @@ export function AccesoPage() {
   }
 
   const scanMut = useMutation({
-    mutationFn: (nfc_uid: string) => accesoApi.nfcScan(nfc_uid).then((r) => r.data),
+    mutationFn: (nfc_uid: string) => accesoApi.nfcScan(nfc_uid, 'auto').then((r) => r.data),
     onSuccess: (data) => {
       setLast(data)
       invalidate()
-      if (data.acceso_concedido) {
-        toast.success(data.mensaje)
-      } else {
-        toast.error(data.mensaje)
-      }
+      if (data.acceso_concedido) toast.success(data.mensaje)
+      else toast.error(data.mensaje)
       setUid('')
     },
     onError: (e) => toast.error(getErrorMessage(e)),
   })
 
   const registrarCodigo = (codigo: string) =>
-    accesoApi.qrScan(codigo.trim()).then((r) => r.data)
+    accesoApi.qrScan(codigo.trim(), 'auto').then((r) => r.data)
 
   const manualMut = useMutation({
     mutationFn: registrarCodigo,
@@ -108,6 +115,18 @@ export function AccesoPage() {
     },
     onError: (e) => toast.error(getErrorMessage(e)),
   })
+
+  const manualMutateRef = useRef(manualMut.mutate)
+  const manualPendingRef = useRef(false)
+  manualMutateRef.current = manualMut.mutate
+  manualPendingRef.current = manualMut.isPending
+
+  const onQrCameraScan = useCallback((codigo: string) => {
+    setCodigoManual(codigo)
+    if (!manualPendingRef.current) {
+      manualMutateRef.current(codigo)
+    }
+  }, [])
 
   const handleNfcScan = () => {
     if (!uid.trim()) return
@@ -124,12 +143,14 @@ export function AccesoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Control de ingreso NFC</h1>
-        <p className="text-muted-foreground">Registro automático con carnet universitario</p>
+        <h1 className="text-3xl font-bold tracking-tight">Control NFC — ingreso / salida</h1>
+        <p className="text-muted-foreground">
+          1.er escaneo del día = entrada · 2.º escaneo = salida · después no puede volver a entrar
+          hoy
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Lector NFC */}
         <Card className="lg:col-span-2 border-primary/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -145,7 +166,9 @@ export function AccesoPage() {
               }`}
             >
               <div className="relative mb-4">
-                <Nfc className={`h-20 w-20 ${lectorActivo ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+                <Nfc
+                  className={`h-20 w-20 ${lectorActivo ? 'animate-pulse text-primary' : 'text-muted-foreground'}`}
+                />
                 {lectorActivo && (
                   <span className="absolute -right-1 -top-1 flex h-4 w-4">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
@@ -155,7 +178,7 @@ export function AccesoPage() {
               </div>
               <p className="text-lg font-medium">Acerque su carnet</p>
               <p className="text-sm text-muted-foreground">
-                {lectorActivo ? 'Lector NFC activo' : 'Lector pausado'}
+                {lectorActivo ? 'Lector NFC activo (entrada / salida)' : 'Lector pausado'}
               </p>
             </div>
 
@@ -167,26 +190,24 @@ export function AccesoPage() {
                 placeholder="UID NFC o escaneo automático…"
                 className="font-mono"
                 disabled={!lectorActivo}
-              />
-              <Button
-                onClick={handleNfcScan}
                 onKeyDown={(e) => e.key === 'Enter' && handleNfcScan()}
-                disabled={!uid || scanMut.isPending || !lectorActivo}
-              >
+              />
+              <Button onClick={handleNfcScan} disabled={!uid || scanMut.isPending || !lectorActivo}>
                 Registrar
               </Button>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={simularRegistro} disabled={scanMut.isPending}>
-                <Radio className="mr-2 h-4 w-4" />
-                Simular registro
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLectorActivo((v) => !v)}
+                onClick={simularRegistro}
+                disabled={scanMut.isPending}
               >
+                <Radio className="mr-2 h-4 w-4" />
+                Simular registro
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setLectorActivo((v) => !v)}>
                 {lectorActivo ? 'Pausar lector' : 'Activar lector'}
               </Button>
             </div>
@@ -195,17 +216,38 @@ export function AccesoPage() {
               <Alert variant={last.acceso_concedido ? 'success' : 'destructive'}>
                 <AlertTitle>{last.mensaje}</AlertTitle>
                 <AlertDescription>
-                  {last.nombre && <p>{last.nombre}{last.carrera ? ` — ${last.carrera}` : ''}</p>}
+                  {last.nombre && (
+                    <p>
+                      {last.nombre}
+                      {last.carrera ? ` — ${last.carrera}` : ''}
+                    </p>
+                  )}
                   {last.tipo_movimiento && (
                     <p className="mt-1 capitalize">Movimiento: {last.tipo_movimiento}</p>
                   )}
                   {last.motivo_denegacion && <p>Motivo: {last.motivo_denegacion}</p>}
-                  {sinMembresia && last.nombre && (
+                  {sinMembresia && last.nombre && !yaVisitoHoy && (
                     <p className="mt-2">
-                      El estudiante está registrado pero no tiene plan activo.{' '}
+                      Sin acceso a sala de máquinas.{' '}
                       <Link to="/admin/membresias" className="font-medium underline">
-                        Asignar membresía
+                        Asignar o renovar membresía
                       </Link>
+                      .
+                    </p>
+                  )}
+                  {sinInscripcion && !sinMembresia && last.nombre && !yaVisitoHoy && (
+                    <p className="mt-2">
+                      Para sala de actividades necesita inscripción pagada en{' '}
+                      <Link to="/admin/reservas" className="font-medium underline">
+                        Reservas / inscripciones
+                      </Link>
+                      .
+                    </p>
+                  )}
+                  {yaVisitoHoy && (
+                    <p className="mt-2">
+                      Este estudiante ya completó su visita de hoy (entrada + salida). Solo se
+                      permite un ingreso por día.
                     </p>
                   )}
                 </AlertDescription>
@@ -214,7 +256,6 @@ export function AccesoPage() {
           </CardContent>
         </Card>
 
-        {/* QR / acceso manual */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -222,10 +263,11 @@ export function AccesoPage() {
               QR y acceso manual
             </CardTitle>
             <CardDescription>
-              Escanea el QR de la app del estudiante o ingresa su código
+              Escanea el QR o ingresa el código — el sistema decide entrada o salida
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <QrCameraScanner onScan={onQrCameraScan} pauseDecoding={manualMut.isPending} />
             <div className="space-y-2">
               <Label htmlFor="codigo">Código escaneado o manual</Label>
               <Input
@@ -245,23 +287,17 @@ export function AccesoPage() {
               onClick={() => codigoManual && manualMut.mutate(codigoManual)}
               disabled={!codigoManual || manualMut.isPending}
             >
-              Registrar acceso
+              Registrar ingreso / salida
             </Button>
             <p className="text-xs text-muted-foreground">
-              1) El estudiante abre su app → Acceso y muestra el QR.
-              2) Escanea con lector USB (el código se escribe solo) o pégalo manualmente.
-              3) Pulsa Enter o «Registrar acceso». También acepta registro universitario o cédula.
+              1) El estudiante muestra su QR (app → Mi acceso).
+              2) Primer escaneo = entrada · segundo = salida.
+              3) Si ya salió hoy, no podrá volver a entrar hasta mañana.
             </p>
-            {sinMembresia && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                Sin membresía activa el ingreso se deniega aunque el código sea correcto.
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Estadísticas */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loadingMonitor ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
@@ -295,7 +331,6 @@ export function AccesoPage() {
         )}
       </div>
 
-      {/* Historial reciente */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -311,9 +346,9 @@ export function AccesoPage() {
               <Skeleton className="h-16 w-full" />
             </div>
           ) : historial.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Sin registros aún</p>
+            <p className="py-8 text-center text-muted-foreground">Sin registros aún</p>
           ) : (
-            <div className="space-y-2 max-h-[480px] overflow-y-auto">
+            <div className="max-h-[480px] space-y-2 overflow-y-auto">
               {historial.slice(0, 20).map((a) => (
                 <HistorialItem key={a.id} acceso={a} />
               ))}

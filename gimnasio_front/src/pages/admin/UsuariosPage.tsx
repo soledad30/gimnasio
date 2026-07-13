@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FormEvent, useMemo, useState } from 'react'
-import { Check, Copy, KeyRound, Mail, Shield } from 'lucide-react'
+import { Check, Copy, KeyRound, Mail, Search, Shield } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { usuariosApi } from '@/api/services'
@@ -56,14 +56,18 @@ export function UsuariosPage() {
   const [resetResult, setResetResult] = useState<ResetPasswordResult | null>(null)
   const [filtroRol, setFiltroRol] = useState('')
   const [filtroActivo, setFiltroActivo] = useState<'' | 'true' | 'false'>('')
+  const [busqueda, setBusqueda] = useState('')
+
+  const busquedaTrim = busqueda.trim()
 
   const queryParams = useMemo(() => {
-    const p: { rol?: string; activo?: boolean } = {}
+    const p: { rol?: string; activo?: boolean; q?: string } = {}
     if (filtroRol) p.rol = filtroRol
     if (filtroActivo === 'true') p.activo = true
     if (filtroActivo === 'false') p.activo = false
+    if (busquedaTrim) p.q = busquedaTrim
     return p
-  }, [filtroRol, filtroActivo])
+  }, [filtroRol, filtroActivo, busquedaTrim])
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['usuarios', queryParams],
@@ -158,8 +162,8 @@ export function UsuariosPage() {
   return (
     <>
       <PageHeader
-        title="Usuarios y roles"
-        description="Gestiona cuentas, roles, acceso y contraseñas del personal"
+        title="Cuentas de usuario"
+        description="Gestiona cuentas, acceso y contraseñas del personal"
         onCreate={() => setOpenCreate(true)}
         createLabel="Nuevo usuario"
       />
@@ -170,10 +174,24 @@ export function UsuariosPage() {
             <Shield className="h-5 w-5" />
             Cuentas del sistema
           </CardTitle>
-          <CardDescription>{data.length} usuario(s)</CardDescription>
+          <CardDescription>
+            {busquedaTrim
+              ? `${data.length} resultado(s) para «${busquedaTrim}»`
+              : `${data.length} usuario(s) — mostrando los más recientes`}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative min-w-[220px] flex-1 sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre, email o teléfono…"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="pl-9"
+                aria-label="Buscar usuarios"
+              />
+            </div>
             <select
               aria-label="Filtrar por rol"
               className={selectClassName + ' w-auto min-w-[160px]'}
@@ -217,7 +235,9 @@ export function UsuariosPage() {
                 {data.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No hay usuarios con esos filtros.
+                      {busquedaTrim || filtroRol || filtroActivo
+                        ? 'No hay usuarios con esos filtros.'
+                        : 'No hay usuarios registrados.'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -245,14 +265,16 @@ export function UsuariosPage() {
                             <Button
                               type="button"
                               variant="outline"
-                              size="sm"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Clave"
+                              aria-label="Clave"
                               onClick={() => {
                                 setResetUser(u)
                                 setResetResult(null)
                               }}
                             >
-                              <KeyRound className="h-4 w-4 shrink-0" />
-                              Clave
+                              <KeyRound className="h-4 w-4" />
                             </Button>
                           }
                         />
@@ -286,7 +308,14 @@ export function UsuariosPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="rol">Rol</Label>
-              <select id="rol" name="rol" className={selectClassName} defaultValue="recepcion">
+              <select
+                id="rol"
+                name="rol"
+                className={selectClassName}
+                defaultValue="recepcion"
+                aria-label="Rol del nuevo usuario"
+                title="Rol del nuevo usuario"
+              >
                 <option value="recepcion">Recepción</option>
                 <option value="admin">Administrador</option>
               </select>
@@ -338,6 +367,8 @@ export function UsuariosPage() {
                   className={selectClassName}
                   defaultValue={editUser.rol_efectivo}
                   disabled={editUser.id === currentUser?.id}
+                  aria-label="Rol del usuario"
+                  title="Rol del usuario"
                 >
                   {ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -359,6 +390,8 @@ export function UsuariosPage() {
                   className={selectClassName}
                   defaultValue={editUser.activo ? 'true' : 'false'}
                   disabled={editUser.id === currentUser?.id}
+                  aria-label="Estado del usuario"
+                  title="Estado del usuario"
                 >
                   <option value="true">Activo</option>
                   <option value="false">Inactivo</option>
@@ -445,7 +478,14 @@ export function UsuariosPage() {
                 <form onSubmit={onReset} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="modo">Método</Label>
-                    <select id="modo" name="modo" className={selectClassName} defaultValue="temporal">
+                    <select
+                      id="modo"
+                      name="modo"
+                      className={selectClassName}
+                      defaultValue="temporal"
+                      aria-label="Método para restablecer contraseña"
+                      title="Método para restablecer contraseña"
+                    >
                       <option value="temporal">Generar contraseña temporal</option>
                       <option value="manual">Establecer contraseña manual</option>
                     </select>

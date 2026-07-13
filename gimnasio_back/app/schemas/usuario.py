@@ -21,6 +21,11 @@ class UsuarioUpdate(BaseModel):
     rol: Optional[RolLiteral] = None
 
 
+class UsuarioMeUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, min_length=1, max_length=150)
+    telefono: Optional[str] = None
+
+
 class UsuarioResponse(BaseModel):
     id: int
     nombre: str

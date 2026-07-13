@@ -36,11 +36,35 @@ def minutos_a_hora(minutos: int) -> str:
     return f"{minutos // 60:02d}:{minutos % 60:02d}"
 
 
+def _gym_time_to_minutes(value: str) -> int:
+    """Convierte HH:MM o HH:MM:SS a minutos desde medianoche."""
+    parts = value.strip().split(":")
+    h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+    return h * 60 + m
+
+
+def gym_open_display() -> str:
+    t = getattr(settings, "GYM_OPEN_TIME", None) or f"{settings.GYM_OPEN_HOUR:02d}:00:00"
+    parts = t.split(":")
+    return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+
+
+def gym_close_display() -> str:
+    t = getattr(settings, "GYM_CLOSE_TIME", None) or f"{settings.GYM_CLOSE_HOUR:02d}:00:00"
+    parts = t.split(":")
+    return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+
+
 def bloques_gym() -> list[tuple[str, str]]:
-    """Bloques de 1 hora entre apertura y cierre."""
+    """Bloques de 1 hora entre apertura y cierre (usa HH:MM:SS de configuración)."""
     bloques = []
-    inicio = settings.GYM_OPEN_HOUR * 60
-    fin = settings.GYM_CLOSE_HOUR * 60
+    open_t = getattr(settings, "GYM_OPEN_TIME", None) or f"{settings.GYM_OPEN_HOUR:02d}:00:00"
+    close_t = getattr(settings, "GYM_CLOSE_TIME", None) or f"{settings.GYM_CLOSE_HOUR:02d}:00:00"
+    inicio = _gym_time_to_minutes(open_t)
+    fin = _gym_time_to_minutes(close_t)
+    # alinear al siguiente bloque :00 si apertura no cae en hora en punto
+    if inicio % 60 != 0:
+        inicio = inicio - (inicio % 60) + 60
     while inicio + 60 <= fin:
         bloques.append((minutos_a_hora(inicio), minutos_a_hora(inicio + 60)))
         inicio += 60
@@ -49,10 +73,10 @@ def bloques_gym() -> list[tuple[str, str]]:
 
 def turnos_coach_maquinas() -> list[dict]:
     """Dos turnos fijos: mañana y tarde (entrada/salida del coach)."""
-    hi_manana = f"{settings.GYM_OPEN_HOUR:02d}:00"
+    hi_manana = gym_open_display()
     hf_manana = f"{settings.GYM_AFTERNOON_START_HOUR:02d}:00"
     hi_tarde = hf_manana
-    hf_tarde = f"{settings.GYM_CLOSE_HOUR:02d}:00"
+    hf_tarde = gym_close_display()
     return [
         {
             "id": "manana",
@@ -161,14 +185,16 @@ def validar_bloque_una_hora(hora_inicio: str, hora_fin: Optional[str]) -> tuple[
 
 
 def validar_horario_gym(hora_inicio: str, hora_fin: str) -> None:
-    apertura = settings.GYM_OPEN_HOUR * 60
-    cierre = settings.GYM_CLOSE_HOUR * 60
+    open_t = getattr(settings, "GYM_OPEN_TIME", None) or f"{settings.GYM_OPEN_HOUR:02d}:00:00"
+    close_t = getattr(settings, "GYM_CLOSE_TIME", None) or f"{settings.GYM_CLOSE_HOUR:02d}:00:00"
+    apertura = _gym_time_to_minutes(open_t)
+    cierre = _gym_time_to_minutes(close_t)
     hi = hora_a_minutos(normalizar_hora(hora_inicio))
     hf = hora_a_minutos(normalizar_hora(hora_fin))
     if hi < apertura or hf > cierre:
         raise HTTPException(
             status_code=400,
-            detail=f"El gimnasio opera de {settings.GYM_OPEN_HOUR:02d}:00 a {settings.GYM_CLOSE_HOUR:02d}:00",
+            detail=f"El gimnasio opera de {gym_open_display()} a {gym_close_display()}",
         )
 
 

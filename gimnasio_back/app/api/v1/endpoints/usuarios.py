@@ -10,11 +10,31 @@ from app.schemas.usuario import (
     ResetPasswordResponse,
     UsuarioAdminResponse,
     UsuarioCreate,
+    UsuarioMeUpdate,
     UsuarioUpdate,
+    UsuarioResponse,
 )
 from app.services.usuario_service import UsuarioService
 
 router = APIRouter()
+
+
+@router.post("/me/cambiar-password", status_code=204)
+async def cambiar_password(
+    data: CambiarPassword,
+    db: AsyncSession = Depends(get_db),
+    current=Depends(get_current_usuario),
+):
+    await UsuarioService(db).cambiar_password(current, data.password_actual, data.password_nueva)
+
+
+@router.patch("/me", response_model=UsuarioResponse)
+async def actualizar_mi_perfil(
+    data: UsuarioMeUpdate,
+    db: AsyncSession = Depends(get_db),
+    current=Depends(get_current_usuario),
+):
+    return await UsuarioService(db).update_me(current, data)
 
 
 @router.post("/", response_model=UsuarioAdminResponse, status_code=201)
@@ -29,13 +49,16 @@ async def crear_usuario(
 @router.get("/", response_model=List[UsuarioAdminResponse])
 async def listar_usuarios(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 500,
     rol: Optional[str] = Query(None, description="admin | recepcion | instructor | estudiante"),
     activo: Optional[bool] = None,
+    q: Optional[str] = Query(None, description="Buscar por nombre, email o teléfono"),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    return await UsuarioService(db).list_admin(skip=skip, limit=limit, rol=rol, activo=activo)
+    return await UsuarioService(db).list_admin(
+        skip=skip, limit=limit, rol=rol, activo=activo, q=q
+    )
 
 
 @router.get("/{usuario_id}", response_model=UsuarioAdminResponse)
@@ -101,12 +124,3 @@ async def reset_password(
         enviado_email=result.notification.enviado_email,
         enviado_sms=result.notification.enviado_sms,
     )
-
-
-@router.post("/me/cambiar-password", status_code=204)
-async def cambiar_password(
-    data: CambiarPassword,
-    db: AsyncSession = Depends(get_db),
-    current=Depends(get_current_usuario),
-):
-    await UsuarioService(db).cambiar_password(current, data.password_actual, data.password_nueva)

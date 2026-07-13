@@ -82,6 +82,24 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE instructores ADD COLUMN IF NOT EXISTS fotourl VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE instructores ALTER COLUMN especialidad TYPE VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS codigo_acceso VARCHAR(20)"))
+        await conn.execute(text("ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS usuario_id INTEGER"))
+        await conn.execute(text("ALTER TABLE notificaciones ALTER COLUMN estudiante_id DROP NOT NULL"))
+        # FK suave si aún no existe (ignorar error en re-arranques)
+        try:
+            await conn.execute(
+                text(
+                    """
+                    DO $$ BEGIN
+                      ALTER TABLE notificaciones
+                        ADD CONSTRAINT fk_notificaciones_usuario
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id);
+                    EXCEPTION WHEN duplicate_object THEN NULL;
+                    END $$;
+                    """
+                )
+            )
+        except Exception:
+            pass
         await conn.execute(text("ALTER TABLE ejercicios ADD COLUMN IF NOT EXISTS fotourl VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE ejercicios ADD COLUMN IF NOT EXISTS videourl VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS categoria VARCHAR(50)"))
@@ -91,6 +109,16 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS fecha_adquisicion DATE"))
         await conn.execute(text("ALTER TABLE pagos ADD COLUMN IF NOT EXISTS inscripcion_id INTEGER REFERENCES inscripciones(id)"))
         await conn.execute(text("ALTER TABLE inscripciones ADD COLUMN IF NOT EXISTS pago_expira_en TIMESTAMPTZ"))
+        await conn.execute(text("ALTER TABLE inscripciones ADD COLUMN IF NOT EXISTS pago_reportado_en TIMESTAMPTZ"))
+        await conn.execute(
+            text("ALTER TABLE inscripciones ADD COLUMN IF NOT EXISTS pago_reportado_metodo VARCHAR(30)")
+        )
+        await conn.execute(
+            text("ALTER TABLE inscripciones ADD COLUMN IF NOT EXISTS pago_reportado_comprobante VARCHAR(120)")
+        )
+        await conn.execute(
+            text("ALTER TABLE inscripciones ADD COLUMN IF NOT EXISTS pago_reportado_notas VARCHAR(500)")
+        )
         await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS descripcion VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE actividades ADD COLUMN IF NOT EXISTS dia_semana VARCHAR(80)"))
         await conn.execute(text("ALTER TABLE actividades ALTER COLUMN dia_semana TYPE VARCHAR(80)"))
@@ -159,8 +187,71 @@ async def lifespan(app: FastAPI):
                 """
             )
         )
+
+        await conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS configuracion_sistema (
+                  id SERIAL PRIMARY KEY,
+                  nombre_organizacion VARCHAR(150),
+                  ubicacion VARCHAR(255),
+                  telefono_contacto VARCHAR(40),
+                  email_contacto VARCHAR(255),
+                  sitio_web VARCHAR(255),
+                  facebook VARCHAR(255),
+                  instagram VARCHAR(255),
+                  whatsapp VARCHAR(80),
+                  tiktok VARCHAR(255),
+                  youtube VARCHAR(255),
+                  gym_open_hour INTEGER,
+                  gym_close_hour INTEGER,
+                  dias_ventana_inscripcion INTEGER,
+                  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+                """
+            )
+        )
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS tiktok VARCHAR(255)"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS youtube VARCHAR(255)"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS gym_open_hour INTEGER"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS gym_close_hour INTEGER"))
+        await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS dias_ventana_inscripcion INTEGER")
+        )
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS gym_open_time VARCHAR(8)"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS gym_close_time VARCHAR(8)"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS banco_nombre VARCHAR(150)"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS banco_cuenta VARCHAR(80)"))
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS banco_titular VARCHAR(150)"))
+        await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS qr_pago_contenido VARCHAR(500)")
+        )
+        await conn.execute(
+            text(
+                """
+                UPDATE configuracion_sistema SET
+                  gym_open_time = COALESCE(
+                    gym_open_time,
+                    CASE WHEN gym_open_hour IS NOT NULL THEN lpad(gym_open_hour::text, 2, '0') || ':00:00' ELSE NULL END
+                  ),
+                  gym_close_time = COALESCE(
+                    gym_close_time,
+                    CASE WHEN gym_close_hour IS NOT NULL THEN lpad(gym_close_hour::text, 2, '0') || ':00:00' ELSE NULL END
+                  )
+                WHERE gym_open_time IS NULL OR gym_close_time IS NULL
+                """
+            )
+        )
     await seed_ejercicios_default()
     await seed_salas_default()
+    async with AsyncSessionLocal() as db:
+        from app.services.configuracion_service import ConfiguracionService
+
+        await ConfiguracionService(db).get()
+    async with AsyncSessionLocal() as db:
+        from app.services.rol_service import RolService
+        await RolService(db).seed_defaults_if_empty()
     async with AsyncSessionLocal() as db:
         from app.services.notificacion_service import NotificacionService
         await NotificacionService(db).procesar_alertas_vencimiento()

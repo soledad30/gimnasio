@@ -48,14 +48,20 @@ const GRUPOS_FILTRO = [
 ]
 
 const GRUPO_STYLES: Record<string, string> = {
-  pecho: 'bg-red-500/15 text-red-400 border-red-500/30',
-  espalda: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  piernas: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
-  hombros: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-  brazos: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  abdomen: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  bíceps: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
-  cardio: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+  pecho: 'bg-red-500/15 text-red-700 border-red-500/40 dark:text-red-400 dark:border-red-500/30',
+  espalda:
+    'bg-orange-500/15 text-orange-800 border-orange-500/40 dark:text-orange-400 dark:border-orange-500/30',
+  piernas:
+    'bg-violet-500/15 text-violet-800 border-violet-500/40 dark:text-violet-400 dark:border-violet-500/30',
+  hombros:
+    'bg-cyan-500/15 text-cyan-800 border-cyan-500/40 dark:text-cyan-400 dark:border-cyan-500/30',
+  brazos:
+    'bg-emerald-500/15 text-emerald-800 border-emerald-500/40 dark:text-emerald-400 dark:border-emerald-500/30',
+  abdomen:
+    'bg-amber-500/15 text-amber-900 border-amber-500/40 dark:text-amber-400 dark:border-amber-500/30',
+  bíceps:
+    'bg-pink-500/15 text-pink-800 border-pink-500/40 dark:text-pink-400 dark:border-pink-500/30',
+  cardio: 'bg-sky-500/15 text-sky-800 border-sky-500/40 dark:text-sky-400 dark:border-sky-500/30',
 }
 
 const selectClassName =

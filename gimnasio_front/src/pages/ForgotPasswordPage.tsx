@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { cn } from '@/lib/utils'
 
 type Metodo = 'email' | 'telefono'
@@ -35,11 +36,14 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-card lg:flex lg:flex-col lg:justify-between lg:p-12">
+    <div className="relative grid min-h-screen lg:grid-cols-2">
+      <div className="absolute right-4 top-4 z-20">
+        <ThemeToggle variant="icon" />
+      </div>
+      <div className="relative hidden overflow-hidden border-r border-border bg-card lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="flex items-center gap-3">
           <Dumbbell className="h-10 w-10 text-primary" />
-          <span className="text-3xl font-bold">
+          <span className="text-3xl font-bold text-foreground">
             UAGRM<span className="text-primary">-GYM</span>
           </span>
         </div>

@@ -24,14 +24,18 @@ import type {
   Notificacion,
   PerfilResponse,
   ReporteAccesos,
+  ReporteGraficos,
   Reserva,
   Rutina,
   Sala,
   StaffingResumen,
   TokenResponse,
   ResetPasswordResult,
+  RolPermisosDetalle,
+  RolResumen,
   Usuario,
   UsuarioAdmin,
+  ConfiguracionOrganizacion,
   VentanaInscripcion,
 } from '../types'
 
@@ -62,6 +66,8 @@ export const reportesApi = {
   dashboard: () => api.get<DashboardKpis>('/reportes/dashboard'),
   accesos: (fecha_inicio: string, fecha_fin: string) =>
     api.get<ReporteAccesos>('/reportes/accesos', { params: { fecha_inicio, fecha_fin } }),
+  graficos: (fecha_inicio: string, fecha_fin: string) =>
+    api.get<ReporteGraficos>('/reportes/graficos', { params: { fecha_inicio, fecha_fin } }),
   exportCsv: (
     tipo: 'accesos' | 'pagos' | 'membresias' | 'estudiantes',
     params?: { fecha_inicio?: string; fecha_fin?: string }
@@ -73,7 +79,8 @@ export const reportesApi = {
 }
 
 export const estudiantesApi = {
-  list: () => api.get<Estudiante[]>('/estudiantes/'),
+  list: (params?: { q?: string; limit?: number }) =>
+    api.get<Estudiante[]>('/estudiantes/', { params }),
   miPerfil: () => api.get<Estudiante>('/estudiantes/mi-perfil'),
   get: (id: number) => api.get<Estudiante>(`/estudiantes/${id}`),
   create: (data: Record<string, unknown>) => api.post<Estudiante>('/estudiantes/', data),
@@ -173,9 +180,12 @@ export const maquinasApi = {
 
 export const accesoApi = {
   historial: () => api.get<Acceso[]>('/acceso/historial'),
-  nfcScan: (nfc_uid: string) => api.post<NfcScanResult>('/acceso/nfc-scan', { nfc_uid }),
-  manual: (codigo: string) => api.post<NfcScanResult>('/acceso/manual', { codigo }),
-  qrScan: (codigo: string) => api.post<NfcScanResult>('/acceso/qr-scan', { codigo }),
+  nfcScan: (nfc_uid: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
+    api.post<NfcScanResult>('/acceso/nfc-scan', { nfc_uid, modo }),
+  manual: (codigo: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
+    api.post<NfcScanResult>('/acceso/manual', { codigo, modo }),
+  qrScan: (codigo: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
+    api.post<NfcScanResult>('/acceso/qr-scan', { codigo, modo }),
   miQr: () => api.get<CodigoAcceso>('/acceso/mi-qr'),
   checkIn: () => api.post<NfcScanResult>('/acceso/check-in'),
   monitor: () => api.get<AccesoMonitorStats>('/acceso/monitor'),
@@ -185,8 +195,20 @@ export const accesoApi = {
 
 export const notificacionesApi = {
   list: () => api.get<Notificacion[]>('/notificaciones/'),
-  procesarAlertas: () => api.post<{ notificaciones_creadas: number; fecha: string }>('/notificaciones/procesar-alertas'),
+  procesarAlertas: () =>
+    api.post<{ notificaciones_creadas: number; fecha: string }>('/notificaciones/procesar-alertas'),
   create: (data: Record<string, unknown>) => api.post<Notificacion>('/notificaciones/', data),
+  createMasivo: (data: {
+    alcance: string
+    titulo: string
+    mensaje: string
+    tipo?: string
+    estudiante_id?: number | null
+  }) =>
+    api.post<{ creadas: number; alcance: string; destinatarios: number }>(
+      '/notificaciones/masivo',
+      data
+    ),
   mis: () => api.get<Notificacion[]>('/notificaciones/mis-notificaciones'),
   marcarLeida: (id: number) => api.patch<Notificacion>(`/notificaciones/${id}/leer`),
   delete: (id: number) => api.delete(`/notificaciones/${id}`),
@@ -213,6 +235,15 @@ export const inscripcionesApi = {
     api.post<Inscripcion>('/inscripciones/admin', data),
   confirmarPago: (id: number, data: Record<string, unknown>) =>
     api.post<Inscripcion>(`/inscripciones/${id}/confirmar-pago`, data),
+  reportarPago: (
+    id: number,
+    data: {
+      modo: 'auto' | 'notificar'
+      metodo?: string
+      referencia_comprobante?: string
+      notas?: string
+    }
+  ) => api.post<Inscripcion>(`/inscripciones/${id}/reportar-pago`, data),
   renovarPago: (id: number) => api.post<Inscripcion>(`/inscripciones/${id}/renovar-pago`),
   buscarReferencia: (referencia: string) =>
     api.get<Inscripcion>(`/inscripciones/por-referencia/${encodeURIComponent(referencia)}`),
@@ -251,7 +282,7 @@ export const ejerciciosApi = {
 }
 
 export const usuariosApi = {
-  list: (params?: { rol?: string; activo?: boolean }) =>
+  list: (params?: { rol?: string; activo?: boolean; q?: string }) =>
     api.get<UsuarioAdmin[]>('/usuarios/', { params }),
   get: (id: number) => api.get<UsuarioAdmin>(`/usuarios/${id}`),
   create: (data: Record<string, unknown>) => api.post<UsuarioAdmin>('/usuarios/', data),
@@ -260,6 +291,23 @@ export const usuariosApi = {
   delete: (id: number) => api.delete(`/usuarios/${id}`),
   resetPassword: (id: number, data?: { password_nueva?: string; generar_temporal?: boolean }) =>
     api.post<ResetPasswordResult>(`/usuarios/${id}/reset-password`, data ?? { generar_temporal: true }),
+  updateMe: (data: { nombre?: string; telefono?: string | null }) =>
+    api.patch<Usuario>('/usuarios/me', data),
+  cambiarPasswordMe: (data: { password_actual: string; password_nueva: string }) =>
+    api.post<void>('/usuarios/me/cambiar-password', data),
+}
+
+export const rolesApi = {
+  list: () => api.get<RolResumen[]>('/roles/'),
+  get: (rol: string) => api.get<RolPermisosDetalle>(`/roles/${rol}`),
+  updatePermisos: (rol: string, permisos: string[]) =>
+    api.put<RolPermisosDetalle>(`/roles/${rol}/permisos`, { permisos }),
+}
+
+export const configuracionApi = {
+  getOrganizacion: () => api.get<ConfiguracionOrganizacion>('/configuracion/organizacion'),
+  updateOrganizacion: (data: Partial<ConfiguracionOrganizacion>) =>
+    api.patch<ConfiguracionOrganizacion>('/configuracion/organizacion', data),
 }
 
 export const membresiasApi = {

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.roles import ROLES_VALIDOS, resolve_rol, sync_es_admin
@@ -13,7 +13,7 @@ from app.models.administrador import Administrador
 from app.models.estudiante import Estudiante
 from app.models.instructor import Instructor
 from app.models.usuario import Usuario
-from app.schemas.usuario import UsuarioAdminResponse, UsuarioCreate, UsuarioUpdate
+from app.schemas.usuario import UsuarioAdminResponse, UsuarioCreate, UsuarioMeUpdate, UsuarioUpdate
 from app.services.base_service import BaseService
 from app.services.notification_service import NotificationResult, send_temp_password
 
@@ -83,15 +83,27 @@ class UsuarioService(BaseService[Usuario]):
     async def list_admin(
         self,
         skip: int = 0,
-        limit: int = 100,
+        limit: int = 500,
         rol: Optional[str] = None,
         activo: Optional[bool] = None,
+        q: Optional[str] = None,
     ) -> list[UsuarioAdminResponse]:
-        query = select(Usuario).offset(skip).limit(limit).order_by(Usuario.id)
+        query = select(Usuario)
+        term = (q or "").strip()
+        if term:
+            pattern = f"%{term}%"
+            query = query.where(
+                or_(
+                    Usuario.nombre.ilike(pattern),
+                    Usuario.email.ilike(pattern),
+                    Usuario.telefono.ilike(pattern),
+                )
+            )
         if activo is not None:
             query = query.where(Usuario.activo == activo)
         if rol:
             query = query.where(Usuario.rol == rol)
+        query = query.order_by(Usuario.id.desc()).offset(skip).limit(limit)
 
         result = await self.db.execute(query)
         users = list(result.scalars().all())
@@ -193,6 +205,14 @@ class UsuarioService(BaseService[Usuario]):
         await self.db.refresh(user)
         estudiantes, instructores = await self._perfiles_por_usuario([user.id])
         return self._to_admin_response(user, estudiantes.get(user.id), instructores.get(user.id))
+
+    async def update_me(self, current: Usuario, data: UsuarioMeUpdate) -> Usuario:
+        updates = data.model_dump(exclude_none=True)
+        for field, value in updates.items():
+            setattr(current, field, value)
+        await self.db.commit()
+        await self.db.refresh(current)
+        return current
 
     async def authenticate(self, email: str, password: str) -> Optional[Usuario]:
         user = await self.get_by_email(email)

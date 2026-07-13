@@ -9,6 +9,7 @@ import { DeleteConfirmDialog } from '@/components/crud/DeleteConfirmDialog'
 import { DetailGrid } from '@/components/crud/DetailGrid'
 import { PageHeader } from '@/components/crud/PageHeader'
 import { RowActions } from '@/components/crud/RowActions'
+import { EstudianteSearchSelect } from '@/components/forms/EstudianteSearchSelect'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -235,7 +236,7 @@ export function ReservasAdminPage() {
       </Card>
 
       <Dialog open={openInscripcion} onOpenChange={setOpenInscripcion}>
-        <DialogContent>
+        <DialogContent className="overflow-visible">
           <DialogHeader>
             <DialogTitle>Inscribir estudiante (admin)</DialogTitle>
           </DialogHeader>
@@ -252,25 +253,12 @@ export function ReservasAdminPage() {
                   tipo === 'actividad' ? Number(fd.get('actividad_id')) : undefined,
               })
             }}
-            className="space-y-4"
+            className="space-y-4 overflow-visible"
           >
-            <div className="space-y-2">
-              <Label htmlFor="estudiante_id">Estudiante</Label>
-              <select
-                id="estudiante_id"
-                name="estudiante_id"
-                required
-                className={selectClassName}
-                aria-label="Estudiante"
-              >
-                <option value="">Seleccionar…</option>
-                {estudiantes.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <EstudianteSearchSelect
+              estudiantes={estudiantes}
+              required
+            />
             <div className="space-y-2">
               <Label htmlFor="mes_inicio">Mes de inscripción</Label>
               <Input
@@ -354,8 +342,8 @@ export function ReservasAdminPage() {
               <Label htmlFor="metodo">Método de pago</Label>
               <select id="metodo" name="metodo" required className={selectClassName} aria-label="Método">
                 <option value="efectivo">Efectivo</option>
+                <option value="qr">QR Simple</option>
                 <option value="transferencia">Transferencia</option>
-                <option value="qr">QR / billetera</option>
                 <option value="tarjeta">Tarjeta</option>
               </select>
             </div>

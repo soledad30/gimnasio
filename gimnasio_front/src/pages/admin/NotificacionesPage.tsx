@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { estudiantesApi, notificacionesApi } from '@/api/services'
@@ -8,6 +8,7 @@ import { DeleteConfirmDialog } from '@/components/crud/DeleteConfirmDialog'
 import { DetailGrid } from '@/components/crud/DetailGrid'
 import { PageHeader } from '@/components/crud/PageHeader'
 import { RowActions } from '@/components/crud/RowActions'
+import { EstudianteSearchSelect } from '@/components/forms/EstudianteSearchSelect'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,11 +31,57 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+type Alcance =
+  | 'estudiante'
+  | 'todos_estudiantes'
+  | 'recepcion'
+  | 'instructor'
+  | 'admin'
+  | 'todos'
+
+const ALCANCES: { value: Alcance; label: string; hint: string }[] = [
+  {
+    value: 'estudiante',
+    label: 'Un estudiante',
+    hint: 'Busca por nombre, registro o CI',
+  },
+  {
+    value: 'todos_estudiantes',
+    label: 'Todos los estudiantes',
+    hint: 'Aviso general a alumnos (cierre, mantenimiento, etc.)',
+  },
+  {
+    value: 'recepcion',
+    label: 'Recepcionistas',
+    hint: 'Solo cuentas con rol recepción',
+  },
+  {
+    value: 'instructor',
+    label: 'Instructores',
+    hint: 'Solo entrenadores / instructores',
+  },
+  {
+    value: 'admin',
+    label: 'Administradores',
+    hint: 'Solo cuentas admin',
+  },
+  {
+    value: 'todos',
+    label: 'Todos (estudiantes + staff)',
+    hint: 'Alumnos, recepción, instructores y admins',
+  },
+]
+
 export function NotificacionesPage() {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [viewRow, setViewRow] = useState<Notificacion | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [alcance, setAlcance] = useState<Alcance>('estudiante')
+  const [estudianteId, setEstudianteId] = useState<number | null>(null)
+  const [titulo, setTitulo] = useState('')
+  const [mensaje, setMensaje] = useState('')
+  const [tipo, setTipo] = useState('aviso')
 
   const { data: estudiantes = [] } = useQuery({
     queryKey: ['estudiantes'],
@@ -47,11 +94,22 @@ export function NotificacionesPage() {
   })
 
   const createMut = useMutation({
-    mutationFn: (body: Record<string, string | number>) => notificacionesApi.create(body),
-    onSuccess: () => {
+    mutationFn: (body: {
+      alcance: Alcance
+      titulo: string
+      mensaje: string
+      tipo?: string
+      estudiante_id?: number | null
+    }) => notificacionesApi.createMasivo(body).then((r) => r.data),
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['notificaciones-admin'] })
       setOpen(false)
-      toast.success('Notificación enviada')
+      resetForm()
+      toast.success(
+        res.creadas === 1
+          ? 'Notificación enviada'
+          : `${res.creadas} notificaciones enviadas`
+      )
     },
     onError: (e) => toast.error(getErrorMessage(e)),
   })
@@ -75,26 +133,56 @@ export function NotificacionesPage() {
     onError: (e) => toast.error(getErrorMessage(e)),
   })
 
+  const resetForm = () => {
+    setAlcance('estudiante')
+    setEstudianteId(null)
+    setTitulo('')
+    setMensaje('')
+    setTipo('aviso')
+  }
+
+  const alcanceHint = useMemo(
+    () => ALCANCES.find((a) => a.value === alcance)?.hint ?? '',
+    [alcance]
+  )
+
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    if (!titulo.trim() || !mensaje.trim()) {
+      toast.error('Completa título y mensaje')
+      return
+    }
+    if (alcance === 'estudiante' && !estudianteId) {
+      toast.error('Selecciona un estudiante')
+      return
+    }
     createMut.mutate({
-      estudiante_id: Number(fd.get('estudiante_id')),
-      titulo: fd.get('titulo') as string,
-      mensaje: fd.get('mensaje') as string,
-      tipo: (fd.get('tipo') as string) || 'info',
+      alcance,
+      titulo: titulo.trim(),
+      mensaje: mensaje.trim(),
+      tipo: tipo.trim() || 'aviso',
+      estudiante_id: alcance === 'estudiante' ? estudianteId : null,
     })
   }
 
-  const estudianteNombre = (id: number) =>
-    estudiantes.find((e) => e.id === id)?.nombre ?? `Estudiante #${id}`
+  const destinatarioLabel = (n: Notificacion) => {
+    if (n.destinatario) return n.destinatario
+    if (n.estudiante_id) {
+      return estudiantes.find((e) => e.id === n.estudiante_id)?.nombre ?? `Estudiante #${n.estudiante_id}`
+    }
+    if (n.usuario_id) return `Usuario #${n.usuario_id}`
+    return '—'
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Notificaciones"
-        description="Enviar y gestionar alertas a estudiantes"
-        onCreate={() => setOpen(true)}
+        description="Enviar alertas a un estudiante, a todos o por rol (recepción, instructores…)"
+        onCreate={() => {
+          resetForm()
+          setOpen(true)
+        }}
         createLabel="Nueva notificación"
       />
 
@@ -106,7 +194,7 @@ export function NotificacionesPage() {
         >
           {alertasMut.isPending ? 'Procesando…' : 'Generar alertas de vencimiento'}
         </Button>
-        <p className="text-sm text-muted-foreground self-center">
+        <p className="self-center text-sm text-muted-foreground">
           Avisa automáticamente a estudiantes con membresía por vencer (7 días) o vencida
         </p>
       </div>
@@ -127,7 +215,7 @@ export function NotificacionesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Estudiante</TableHead>
+                  <TableHead>Destinatario</TableHead>
                   <TableHead>Título</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Estado</TableHead>
@@ -137,7 +225,7 @@ export function NotificacionesPage() {
               <TableBody>
                 {data.map((n) => (
                   <TableRow key={n.id}>
-                    <TableCell>{estudianteNombre(n.estudiante_id)}</TableCell>
+                    <TableCell>{destinatarioLabel(n)}</TableCell>
                     <TableCell className="font-medium">{n.titulo}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{n.tipo}</Badge>
@@ -161,39 +249,79 @@ export function NotificacionesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v)
+          if (!v) resetForm()
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Nueva notificación</DialogTitle>
           </DialogHeader>
           <form id="noti-form" onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="estudiante_id">Estudiante</Label>
+              <Label htmlFor="alcance">Destinatarios</Label>
               <select
-                id="estudiante_id"
-                name="estudiante_id"
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                id="alcance"
+                value={alcance}
+                onChange={(e) => {
+                  setAlcance(e.target.value as Alcance)
+                  if (e.target.value !== 'estudiante') setEstudianteId(null)
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
               >
-                <option value="">Seleccionar…</option>
-                {estudiantes.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.nombre} ({e.email})
+                {ALCANCES.map((a) => (
+                  <option key={a.value} value={a.value}>
+                    {a.label}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-muted-foreground">{alcanceHint}</p>
             </div>
+
+            {alcance === 'estudiante' && (
+              <EstudianteSearchSelect
+                label="Estudiante"
+                estudiantes={estudiantes}
+                value={estudianteId}
+                onChange={setEstudianteId}
+                required
+                placeholder="Buscar por nombre, registro o CI…"
+              />
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="titulo">Título</Label>
-              <Input id="titulo" name="titulo" required />
+              <Input
+                id="titulo"
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                placeholder="Ej. Cierre por mantenimiento"
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="mensaje">Mensaje</Label>
-              <Input id="mensaje" name="mensaje" required />
+              <textarea
+                id="mensaje"
+                value={mensaje}
+                onChange={(e) => setMensaje(e.target.value)}
+                required
+                rows={4}
+                placeholder="Ej. El gimnasio estará cerrado el sábado por mantenimiento de equipos."
+                className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="tipo">Tipo</Label>
-              <Input id="tipo" name="tipo" placeholder="info, alerta, promoción" />
+              <Input
+                id="tipo"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                placeholder="aviso, mantenimiento, alerta…"
+              />
             </div>
           </form>
           <DialogFooter>
@@ -201,7 +329,7 @@ export function NotificacionesPage() {
               Cancelar
             </Button>
             <Button type="submit" form="noti-form" disabled={createMut.isPending}>
-              Enviar
+              {createMut.isPending ? 'Enviando…' : 'Enviar'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -215,7 +343,7 @@ export function NotificacionesPage() {
           {viewRow && (
             <DetailGrid
               items={[
-                { label: 'Estudiante', value: estudianteNombre(viewRow.estudiante_id) },
+                { label: 'Destinatario', value: destinatarioLabel(viewRow) },
                 { label: 'Título', value: viewRow.titulo },
                 { label: 'Mensaje', value: viewRow.mensaje },
                 { label: 'Tipo', value: viewRow.tipo },
@@ -236,7 +364,7 @@ export function NotificacionesPage() {
         open={deleteId !== null}
         onOpenChange={() => setDeleteId(null)}
         title="Eliminar notificación"
-        description="Se quitará del portal del estudiante."
+        description="Se quitará del portal del destinatario."
         onConfirm={() => deleteId && deleteMut.mutate(deleteId)}
         loading={deleteMut.isPending}
       />

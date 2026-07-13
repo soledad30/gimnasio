@@ -1,14 +1,15 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    auth, usuarios, estudiantes, instructores,
+    auth, usuarios, roles, estudiantes, instructores,
     acceso, membresias, pagos, rutinas, ejercicios, actividades,
-    maquinas, reservas, inscripciones, notificaciones, reportes, salas, horarios,
+    maquinas, reservas, inscripciones, notificaciones, reportes, salas, horarios, configuracion,
 )
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router,           prefix="/auth",           tags=[" Auth"])
 api_router.include_router(usuarios.router,       prefix="/usuarios",       tags=[" Usuarios"])
+api_router.include_router(roles.router,          prefix="/roles",          tags=[" Roles"])
 api_router.include_router(estudiantes.router,    prefix="/estudiantes",    tags=[" Estudiantes"])
 api_router.include_router(instructores.router,   prefix="/instructores",   tags=[" Instructores"])
 api_router.include_router(acceso.router,         prefix="/acceso",         tags=[" Control Acceso NFC"])
@@ -24,3 +25,4 @@ api_router.include_router(notificaciones.router, prefix="/notificaciones", tags=
 api_router.include_router(reportes.router,       prefix="/reportes",       tags=[" Reportes"])
 api_router.include_router(salas.router,          prefix="/salas",          tags=[" Salas"])
 api_router.include_router(horarios.router,       prefix="/horarios",       tags=[" Horarios"])
+api_router.include_router(configuracion.router,  prefix="/configuracion",  tags=[" Configuración"])
