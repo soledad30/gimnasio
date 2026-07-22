@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,18 +19,36 @@ from app.schemas.auth import (
 )
 from app.schemas.estudiante import EstudianteCreate
 from app.schemas.usuario import UsuarioResponse
+from app.services.bitacora_service import BitacoraService
 from app.services.estudiante_service import EstudianteService
+from app.services.face_service import FaceService
 from app.services.usuario_service import UsuarioService
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=Token, status_code=201)
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(data: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    estudiante_data = data.model_dump(exclude={"face_embedding"})
     estudiante = await EstudianteService(db).create_estudiante(
-        EstudianteCreate(**data.model_dump())
+        EstudianteCreate(**estudiante_data)
     )
+    if data.face_embedding:
+        await FaceService(db).enroll(estudiante.id, data.face_embedding)
     user = await UsuarioService(db).get_by_id(estudiante.usuario_id)
+    try:
+        await BitacoraService(db).registrar(
+            accion="REGISTRO",
+            modulo="Autenticación",
+            metodo="POST",
+            ruta="/api/v1/auth/register",
+            status_code=201,
+            ip=BitacoraService.client_ip(request),
+            detalle="Alta de estudiante vía registro público",
+            usuario=user,
+        )
+    except Exception:
+        pass
     return Token(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
@@ -39,17 +57,44 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     service = UsuarioService(db)
     user = await service.authenticate(form_data.username, form_data.password)
     if not user:
+        try:
+            await BitacoraService(db).registrar(
+                accion="LOGIN_FALLIDO",
+                modulo="Autenticación",
+                metodo="POST",
+                ruta="/api/v1/auth/login",
+                status_code=401,
+                ip=BitacoraService.client_ip(request),
+                detalle=f"Intento fallido: {form_data.username}",
+                usuario_email=form_data.username,
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    try:
+        await BitacoraService(db).registrar(
+            accion="LOGIN",
+            modulo="Autenticación",
+            metodo="POST",
+            ruta="/api/v1/auth/login",
+            status_code=200,
+            ip=BitacoraService.client_ip(request),
+            detalle="Inicio de sesión exitoso",
+            usuario=user,
+        )
+    except Exception:
+        pass
     return Token(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),

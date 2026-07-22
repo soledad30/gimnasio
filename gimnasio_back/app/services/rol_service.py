@@ -15,9 +15,9 @@ from app.schemas.rol import PermisoInfo, RolPermisosDetalle, RolPermisosUpdate, 
 
 ROL_LABELS: dict[str, tuple[str, str]] = {
     "admin": ("Administrador", "Acceso total al sistema."),
-    "recepcion": ("Recepción", "Personal Recepcion"),
-    "instructor": ("Instructor", "Entrenadores con acceso a su portal"),
-    "estudiante": ("Estudiante", "Miembros con acceso"),
+    "recepcion": ("Recepción", "Recepcion: acceso, estudiantes, pagos e inscripciones."),
+    "instructor": ("Instructor", "Entrenadores, acceso a su portal y actividades asignadas."),
+    "estudiante": ("Estudiante", "Miembros con acceso al portal personal."),
 }
 
 
@@ -116,5 +116,18 @@ class RolService:
             for codigo in DEFAULT_ROLE_PERMISSIONS.get(rol, frozenset()):
                 info = permiso_info(codigo)
                 if info:
+                    self.db.add(RolPermiso(rol=rol, permiso=codigo))
+        await self.db.commit()
+
+    async def sync_new_default_permissions(self) -> None:
+        """Agrega permisos nuevos del catálogo a roles con defaults, sin quitar personalizados."""
+        for rol in ROLES_EDITABLES:
+            stored = await self._permisos_en_db(rol)
+            if not stored:
+                continue
+            defaults = DEFAULT_ROLE_PERMISSIONS.get(rol, frozenset())
+            nuevos = defaults - stored
+            for codigo in sorted(nuevos):
+                if codigo in PERMISO_CODIGOS:
                     self.db.add(RolPermiso(rol=rol, permiso=codigo))
         await self.db.commit()

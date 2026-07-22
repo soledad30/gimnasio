@@ -17,6 +17,8 @@ import {
   Nfc,
   Settings,
   Shield,
+  HardDrive,
+  ClipboardList,
   Users,
   UserCog,
   User,
@@ -63,6 +65,8 @@ const adminNav: NavItem[] = [
   { to: '/admin/pagos', label: 'Pagos', icon: DollarSign },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
   { to: '/admin/notificaciones', label: 'Notificaciones', icon: Bell, roles: ['admin'] },
+  { to: '/admin/backups', label: 'Respaldos', icon: HardDrive, roles: ['admin'] },
+  { to: '/admin/bitacora', label: 'Bitácora', icon: ClipboardList, roles: ['admin'] },
   { to: '/admin/mis-avisos', label: 'Mis avisos', icon: Bell, roles: ['recepcion', 'admin'] },
   { to: '/admin/configuracion', label: 'Configuración', icon: Settings, roles: ['admin'] },
 ]

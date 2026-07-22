@@ -29,6 +29,7 @@ interface AuthContextValue {
     telefono?: string
     registro_univercotario?: string
     carrera?: string
+    face_embedding?: number[]
   }) => Promise<PerfilResponse>
   reload: () => Promise<void>
   logout: () => void
@@ -102,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     telefono?: string
     registro_univercotario?: string
     carrera?: string
+    face_embedding?: number[]
   }) => {
     const { data: tokens } = await authApi.register(data)
     localStorage.setItem('access_token', tokens.access_token)

@@ -1,0 +1,45 @@
+# Lista de materiales — Proteus (acceso huella GymPro)
+
+Usá esta lista al armar el schematic (File → New Project → Schematic Capture).
+
+## Dispositivos
+
+1. ARDUINO UNO R3 — 1
+2. COMPIM — 1
+3. BUTTON — 4
+4. LED-GREEN — 1
+5. LED-RED — 1
+6. RES 220 — 2
+7. SOUNDER o BUZZER — 1 (opcional)
+8. VIRTUAL TERMINAL — 0 o 1 (solo debug; no compartir COM con bridge_serial.py)
+
+## Netlist lógico (referencia)
+
+- BTN1.A = ARDUINO.D2 ; BTN1.B = GND
+- BTN2.A = ARDUINO.D3 ; BTN2.B = GND
+- BTN3.A = ARDUINO.D4 ; BTN3.B = GND
+- BTN4.A = ARDUINO.D5 ; BTN4.B = GND
+- ARDUINO.D8 → R220 → LED_GREEN.A ; LED_GREEN.K = GND
+- ARDUINO.D9 → R220 → LED_RED.A ; LED_RED.K = GND
+- ARDUINO.D10 → BUZZER.+ ; BUZZER.- = GND
+- ARDUINO.TXD → COMPIM.RXD
+- ARDUINO.RXD → COMPIM.TXD
+- ARDUINO.GND → COMPIM.GND
+
+## COMPIM
+
+- Physical Port: COM5 (par com0com COM4↔COM5; el bridge usa COM4)
+- Baud Rate: 9600
+- Data Bits: 8
+- Parity: None
+- Stop Bits: 1
+
+## Firmware
+
+Ruta del sketch: firmware/acceso_huella/acceso_huella.ino
+
+IDs enviados:
+- D2 → HUELLA-001
+- D3 → HUELLA-002
+- D4 → HUELLA-003
+- D5 → HUELLA-004

@@ -4,6 +4,7 @@ import type { RutinaEjercicioDetalle } from '@/types'
 import { EjercicioMedia } from '@/components/ejercicios/EjercicioMedia'
 import { MaquinaFoto } from '@/components/maquinas/MaquinaFoto'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -16,9 +17,10 @@ type Props = {
   ejercicio: RutinaEjercicioDetalle | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onRegistrar?: () => void
 }
 
-export function EjercicioRutinaDialog({ ejercicio, open, onOpenChange }: Props) {
+export function EjercicioRutinaDialog({ ejercicio, open, onOpenChange, onRegistrar }: Props) {
   if (!ejercicio) return null
 
   const tieneMaquina = ejercicio.con_maquina && (ejercicio.maquina_nombre || ejercicio.maquina_id)
@@ -98,6 +100,12 @@ export function EjercicioRutinaDialog({ ejercicio, open, onOpenChange }: Props) 
               indique tu instructor.
             </div>
           )}
+
+          {onRegistrar && (
+            <Button type="button" className="w-full" onClick={onRegistrar}>
+              Registrar progreso de hoy
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -105,15 +113,20 @@ export function EjercicioRutinaDialog({ ejercicio, open, onOpenChange }: Props) 
 }
 
 export function useEjercicioRutinaDialog() {
-  const [ejercicio, setEjercicio] = useState<RutinaEjercicioDetalle | null>(null)
+  const [state, setState] = useState<{
+    ejercicio: RutinaEjercicioDetalle
+    rutinaId: number
+  } | null>(null)
 
   return {
-    ejercicio,
-    open: ejercicio !== null,
-    openEjercicio: setEjercicio,
-    close: () => setEjercicio(null),
+    ejercicio: state?.ejercicio ?? null,
+    rutinaId: state?.rutinaId ?? null,
+    open: state !== null,
+    openEjercicio: (ejercicio: RutinaEjercicioDetalle, rutinaId: number) =>
+      setState({ ejercicio, rutinaId }),
+    close: () => setState(null),
     onOpenChange: (open: boolean) => {
-      if (!open) setEjercicio(null)
+      if (!open) setState(null)
     },
   }
 }

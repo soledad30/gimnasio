@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_estudiante, get_current_staff, get_db
@@ -10,11 +10,16 @@ from app.schemas.schemas import (
     AccesoResponse,
     AlertaSeguridad,
     CodigoAccesoResponse,
+    FaceEmbeddingRequest,
+    FaceEnrollRequest,
+    FaceEnrollResponse,
+    HuellaScanRequest,
     NFCScanRequest,
     NFCScanResponse,
 )
 from app.services.acceso_service import AccesoService
 from app.services.estudiante_service import EstudianteService, qr_payload_for
+from app.services.face_service import FaceService
 
 router = APIRouter()
 
@@ -23,6 +28,63 @@ router = APIRouter()
 async def nfc_scan(payload: NFCScanRequest, db: AsyncSession = Depends(get_db)):
     """Lector NFC. modo=auto alterna; entrada/salida fuerzan el movimiento."""
     return await AccesoService(db).procesar_nfc(payload.nfc_uid, modo=payload.modo)
+
+
+@router.post("/huella-scan", response_model=NFCScanResponse)
+async def huella_scan(payload: HuellaScanRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Lector de huella digital (Proteus COMPIM o sensor físico).
+    El `huella_id` se guarda/consulta en el mismo campo `nfc_uid` del estudiante.
+    """
+    return await AccesoService(db).procesar_nfc(payload.huella_id, modo=payload.modo)
+
+
+@router.post("/face-scan", response_model=NFCScanResponse)
+async def face_scan(
+    payload: FaceEmbeddingRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_staff),
+):
+    """Reconocimiento facial: el front envía el embedding (webcam + face-api)."""
+    return await AccesoService(db).procesar_face(payload.embedding, modo=payload.modo)
+
+
+@router.post("/face-enroll", response_model=FaceEnrollResponse)
+async def face_enroll(
+    payload: FaceEnrollRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_staff),
+):
+    """Enrolar rostro de un estudiante (guarda embedding en BD)."""
+    try:
+        est = await FaceService(db).enroll(payload.estudiante_id, payload.embedding)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FaceEnrollResponse(
+        estudiante_id=est.id,
+        nombre=est.nombre,
+        tiene_rostro=True,
+        mensaje=f"Rostro enrolado para {est.nombre}",
+    )
+
+
+@router.delete("/face-enroll/{estudiante_id}", response_model=FaceEnrollResponse)
+async def face_clear(
+    estudiante_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_staff),
+):
+    """Eliminar embedding facial de un estudiante."""
+    try:
+        est = await FaceService(db).clear(estudiante_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FaceEnrollResponse(
+        estudiante_id=est.id,
+        nombre=est.nombre,
+        tiene_rostro=False,
+        mensaje=f"Rostro eliminado de {est.nombre}",
+    )
 
 
 @router.post("/manual", response_model=NFCScanResponse)

@@ -11,13 +11,16 @@ from app.core.uploads import save_image_upload
 from app.models.maquina import Maquina
 from app.models.mantenimiento_maquina import MantenimientoMaquina
 from app.schemas.schemas import (
+    AlertasMantenimientoResumen,
     MantenimientoMaquinaCreate,
     MantenimientoMaquinaResponse,
     MantenimientoPlantillaResponse,
     MaquinaCreate,
+    MaquinaEvaluacionResponse,
     MaquinaResponse,
     MaquinaUpdate,
 )
+from app.services.maquina_evaluacion_service import MaquinaEvaluacionService
 from app.services.mantenimiento_maquina_service import (
     TIPOS_MANTENIMIENTO,
     calcular_proximo_mantenimiento,
@@ -92,6 +95,25 @@ async def listar_maquinas(
     return list(result.scalars().all())
 
 
+@router.get("/alertas-mantenimiento", response_model=AlertasMantenimientoResumen)
+async def alertas_mantenimiento(
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    """Resumen predictivo: preventivo cada 6 meses y vida útil de equipos."""
+    return await MaquinaEvaluacionService(db).resumen_alertas()
+
+
+@router.get("/{maquina_id}/evaluacion", response_model=MaquinaEvaluacionResponse)
+async def evaluacion_maquina(
+    maquina_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_usuario),
+):
+    maq = await _get_maquina(db, maquina_id)
+    return await MaquinaEvaluacionService(db).evaluar_maquina(maq)
+
+
 @router.get("/{maquina_id}/mantenimiento/plantilla", response_model=MantenimientoPlantillaResponse)
 async def plantilla_mantenimiento(
     maquina_id: int,
@@ -134,7 +156,7 @@ async def registrar_mantenimiento(
         raise HTTPException(status_code=400, detail="Resultado inválido")
 
     proximo = data.proximo_mantenimiento or calcular_proximo_mantenimiento(
-        data.fecha_realizado, data.tipo
+        data.fecha_realizado, data.tipo, maq.categoria
     )
     checklist = [s.model_dump() for s in data.checklist]
 

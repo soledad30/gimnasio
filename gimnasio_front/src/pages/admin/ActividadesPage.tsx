@@ -51,12 +51,57 @@ const horarioLabel = (a: Actividad) => {
   return parts.join(' · ') || '—'
 }
 
+const DIAS_AVISO_VIGENCIA = 7
+
+type EstadoVigenciaKey = 'vigente' | 'por_vencer' | 'vencida' | 'sin_vigencia'
+
+type EstadoVigencia = {
+  key: EstadoVigenciaKey
+  label: string
+  variant: 'success' | 'warning' | 'destructive' | 'outline'
+  rowClass: string
+}
+
+function fechaISOconOffset(dias: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + dias)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function inicioProximoMes(): string {
+  const d = new Date()
+  const enDiciembre = d.getMonth() === 11
+  const y = enDiciembre ? d.getFullYear() + 1 : d.getFullYear()
+  const m = enDiciembre ? 1 : d.getMonth() + 2
+  return `${y}-${String(m).padStart(2, '0')}-01`
+}
+
+function estadoVigencia(a: Actividad): EstadoVigencia {
+  if (!a.vigencia_fin) {
+    return { key: 'sin_vigencia', label: 'Sin vigencia', variant: 'outline', rowClass: '' }
+  }
+  const hoy = fechaISOconOffset(0)
+  if (a.vigencia_fin < hoy) {
+    return { key: 'vencida', label: 'Vencida', variant: 'destructive', rowClass: 'bg-destructive/5' }
+  }
+  if (a.vigencia_fin <= fechaISOconOffset(DIAS_AVISO_VIGENCIA)) {
+    return { key: 'por_vencer', label: 'Por vencer', variant: 'warning', rowClass: 'bg-amber-500/10' }
+  }
+  return { key: 'vigente', label: 'Vigente', variant: 'success', rowClass: '' }
+}
+
 export function ActividadesPage() {
   const qc = useQueryClient()
   const [mode, setMode] = useState<ModalMode>(null)
   const [selected, setSelected] = useState<Actividad | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [selectedDias, setSelectedDias] = useState<string[]>([])
+  const [reactivarDefault, setReactivarDefault] = useState<string | null>(null)
+
+  const cerrarModal = () => {
+    setMode(null)
+    setReactivarDefault(null)
+  }
 
   useEffect(() => {
     if (mode === 'create') {
@@ -96,7 +141,7 @@ export function ActividadesPage() {
       qc.invalidateQueries({ queryKey: ['actividades'] })
       qc.invalidateQueries({ queryKey: ['disponibilidad'] })
       qc.invalidateQueries({ queryKey: ['disponibilidad-semanal'] })
-      setMode(null)
+      cerrarModal()
       toast.success('Actividad creada')
     },
     onError: (e) => toast.error(getErrorMessage(e)),
@@ -109,7 +154,7 @@ export function ActividadesPage() {
       qc.invalidateQueries({ queryKey: ['actividades'] })
       qc.invalidateQueries({ queryKey: ['disponibilidad'] })
       qc.invalidateQueries({ queryKey: ['disponibilidad-semanal'] })
-      setMode(null)
+      cerrarModal()
       setSelected(null)
       toast.success('Actividad actualizada')
     },
@@ -185,51 +230,82 @@ export function ActividadesPage() {
                   <TableHead>Entrenador</TableHead>
                   <TableHead>Horario</TableHead>
                   <TableHead>Vigencia</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead>Capacidad</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className="font-medium">{a.nombre}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{a.sala_nombre ?? '—'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {a.instructor_nombre ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{horarioLabel(a)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatVigencia(a.vigencia_tipo, a.vigencia_inicio, a.vigencia_fin, a.vigencia_label)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{a.capacidad} cupos</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActions
-                        onView={() => {
-                          setSelected(a)
-                          setMode('view')
-                        }}
-                        onEdit={() => {
-                          setSelected(a)
-                          setMode('edit')
-                        }}
-                        onDelete={() => setDeleteId(a.id)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {data.map((a) => {
+                  const estado = estadoVigencia(a)
+                  const necesitaReactivar = estado.key === 'vencida' || estado.key === 'por_vencer'
+                  return (
+                    <TableRow key={a.id} className={estado.rowClass}>
+                      <TableCell className="font-medium">{a.nombre}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{a.sala_nombre ?? '—'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {a.instructor_nombre ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{horarioLabel(a)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatVigencia(a.vigencia_tipo, a.vigencia_inicio, a.vigencia_fin, a.vigencia_label)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={estado.variant}>{estado.label}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{a.capacidad} cupos</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {necesitaReactivar && (
+                            <Button
+                              size="sm"
+                              variant={estado.key === 'vencida' ? 'default' : 'outline'}
+                              onClick={() => {
+                                setSelected(a)
+                                setReactivarDefault(inicioProximoMes())
+                                setMode('edit')
+                              }}
+                            >
+                              Reactivar
+                            </Button>
+                          )}
+                          <RowActions
+                            onView={() => {
+                              setSelected(a)
+                              setMode('view')
+                            }}
+                            onEdit={() => {
+                              setSelected(a)
+                              setReactivarDefault(null)
+                              setMode('edit')
+                            }}
+                            onDelete={() => setDeleteId(a.id)}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={mode === 'create' || mode === 'edit'} onOpenChange={() => setMode(null)}>
+      <Dialog open={mode === 'create' || mode === 'edit'} onOpenChange={() => cerrarModal()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{mode === 'edit' ? 'Editar actividad' : 'Nueva actividad'}</DialogTitle>
+            <DialogTitle>
+              {reactivarDefault ? 'Reactivar actividad' : mode === 'edit' ? 'Editar actividad' : 'Nueva actividad'}
+            </DialogTitle>
           </DialogHeader>
+          {reactivarDefault && (
+            <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              Se renovará la vigencia desde el inicio del próximo periodo. Ajusta la fecha o el tipo si lo necesitas.
+            </p>
+          )}
           <form id="act-form" onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="nombre">Nombre</Label>
@@ -351,7 +427,7 @@ export function ActividadesPage() {
                   id="vigencia_inicio"
                   name="vigencia_inicio"
                   type="date"
-                  defaultValue={selected?.vigencia_inicio ?? inicioMesDefault()}
+                  defaultValue={reactivarDefault ?? selected?.vigencia_inicio ?? inicioMesDefault()}
                   required
                 />
               </div>
@@ -371,7 +447,7 @@ export function ActividadesPage() {
             </div>
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setMode(null)}>
+            <Button variant="outline" onClick={() => cerrarModal()}>
               Cancelar
             </Button>
             <Button type="submit" form="act-form" disabled={createMut.isPending || updateMut.isPending}>

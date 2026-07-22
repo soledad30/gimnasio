@@ -177,7 +177,7 @@ export function UsuariosPage() {
           <CardDescription>
             {busquedaTrim
               ? `${data.length} resultado(s) para «${busquedaTrim}»`
-              : `${data.length} usuario(s) — mostrando los más recientes`}
+              : `${data.length} usuario(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

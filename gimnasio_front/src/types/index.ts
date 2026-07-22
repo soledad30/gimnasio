@@ -131,6 +131,7 @@ export interface Estudiante {
   fechafin_membresia?: string | null
   nfc_uid?: string | null
   codigo_acceso?: string | null
+  tiene_rostro?: boolean
   created_at: string
 }
 
@@ -247,6 +248,13 @@ export interface ConfiguracionOrganizacion {
   gym_open_hour?: number | null
   gym_close_hour?: number | null
   dias_ventana_inscripcion?: number | null
+  precio_inscripcion_actividad?: number | null
+  precio_inscripcion_sala_maquinas?: number | null
+  capacidad_sala_actividad?: number | null
+  capacidad_sala_maquinas?: number | null
+  horas_validez_qr_pago?: number | null
+  backup_root?: string | null
+  backup_drive_path?: string | null
   updated_at?: string | null
 }
 
@@ -341,6 +349,34 @@ export interface Maquina {
   anios_vida_util?: number | null
   fecha_adquisicion?: string | null
   created_at: string
+}
+
+export interface MaquinaEvaluacion {
+  maquina_id: number
+  codigo?: string | null
+  nombre: string
+  categoria?: string | null
+  estado_maquina: string
+  proximo_preventivo?: string | null
+  dias_hasta_preventivo?: number | null
+  estado_preventivo: 'al_dia' | 'proximo' | 'vencido' | 'sin_datos' | string
+  ultimo_preventivo?: string | null
+  anios_vida_util: number
+  edad_anios?: number | null
+  porcentaje_vida_util?: number | null
+  fecha_fin_vida_util?: string | null
+  estado_vida_util: 'normal' | 'evaluacion' | 'mantenimiento_mayor' | 'reemplazo' | 'sin_datos' | string
+  sugerencia: string
+  prioridad: number
+}
+
+export interface AlertasMantenimientoResumen {
+  total_maquinas: number
+  preventivo_vencido: number
+  preventivo_proximo: number
+  vida_util_evaluacion: number
+  vida_util_reemplazo: number
+  maquinas: MaquinaEvaluacion[]
 }
 
 export interface MantenimientoChecklistItem {
@@ -511,6 +547,52 @@ export interface Rutina {
   created_at: string
 }
 
+export interface ProgresoEjercicio {
+  id: number
+  estudiante_id: number
+  rutina_id: number
+  ejercicio_id: number
+  ejercicio_nombre?: string | null
+  fecha: string
+  series_completadas?: number | null
+  repeticiones_logradas?: string | null
+  peso_kg?: number | null
+  dificultad_percibida?: number | null
+  notas?: string | null
+  created_at: string
+}
+
+export interface RendimientoResumen {
+  dias_analizados: number
+  accesos_ultimo_periodo: number
+  asistencias_ultimo_periodo: number
+  registros_progreso: number
+  nivel_actividad: string
+  cumplimiento_promedio?: number | null
+}
+
+export interface AjusteEjercicioRecomendado {
+  ejercicio_id: number
+  nombre: string
+  series_actual?: number | null
+  repeticiones_actual?: string | null
+  series_sugerida?: number | null
+  repeticiones_sugerida?: string | null
+  peso_sugerido_kg?: number | null
+  accion: 'mantener' | 'intensificar' | 'reducir' | string
+  motivo: string
+}
+
+export interface RutinaRecomendacion {
+  estudiante_id: number
+  rutina_id?: number | null
+  rutina_nombre?: string | null
+  resumen: RendimientoResumen
+  ajustes: AjusteEjercicioRecomendado[]
+  plantillas_sugeridas: Rutina[]
+  mensaje_general: string
+}
+
 export interface Membresia {
   id: number
   estudiante_id: number
@@ -629,4 +711,46 @@ export interface FichaInscripcionCreate {
   declaracion_jurada: boolean
   firma_nombre: string
   firma_ci?: string
+}
+
+export interface BackupInfo {
+  filename: string
+  created_at: string
+  size_bytes: number
+  size_mb: number
+  postgres_db?: string | null
+  created_by?: string | null
+  drive_copied: boolean
+  include_database: boolean
+  include_uploads: boolean
+}
+
+export interface BackupCreateRequest {
+  include_database: boolean
+  include_uploads: boolean
+}
+
+export interface BackupCreateResponse extends BackupInfo {
+  message: string
+}
+
+export interface BitacoraEntry {
+  id: number
+  usuario_id?: number | null
+  usuario_nombre?: string | null
+  usuario_email?: string | null
+  usuario_rol?: string | null
+  accion: string
+  modulo: string
+  metodo: string
+  ruta: string
+  status_code?: number | null
+  ip?: string | null
+  detalle?: string | null
+  created_at: string
+}
+
+export interface BitacoraListResponse {
+  total: number
+  items: BitacoraEntry[]
 }

@@ -26,3 +26,6 @@ httpx==0.27.2
 
 # Email
 aiosmtplib==3.0.2
+
+# Scheduler de tareas periódicas (alertas automáticas)
+apscheduler==3.10.4

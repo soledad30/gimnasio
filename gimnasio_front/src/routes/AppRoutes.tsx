@@ -42,6 +42,8 @@ import { ReportesPage } from '../pages/admin/ReportesPage'
 import { UsuariosPage } from '../pages/admin/UsuariosPage'
 import { RolesPage } from '../pages/admin/RolesPage'
 import { ConfiguracionPage } from '../pages/admin/ConfiguracionPage'
+import { BackupsPage } from '../pages/admin/BackupsPage'
+import { BitacoraPage } from '../pages/admin/BitacoraPage'
 
 import { InstructorActividadesPage } from '../pages/instructor/InstructorActividadesPage'
 
@@ -217,6 +219,22 @@ export function AppRoutes() {
           element={
             <AdminOnly>
               <ConfiguracionPage />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="backups"
+          element={
+            <AdminOnly>
+              <BackupsPage />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="bitacora"
+          element={
+            <AdminOnly>
+              <BitacoraPage />
             </AdminOnly>
           }
         />

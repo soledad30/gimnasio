@@ -16,6 +16,8 @@ import type {
   Instructor,
   InstructorPanel,
   Maquina,
+  MaquinaEvaluacion,
+  AlertasMantenimientoResumen,
   MantenimientoMaquina,
   MantenimientoPlantilla,
   Membresia,
@@ -27,6 +29,8 @@ import type {
   ReporteGraficos,
   Reserva,
   Rutina,
+  RutinaRecomendacion,
+  ProgresoEjercicio,
   Sala,
   StaffingResumen,
   TokenResponse,
@@ -41,6 +45,10 @@ import type {
   FichaInscripcionResumen,
   FichaEstado,
   FichaInscripcionCreate,
+  BackupInfo,
+  BackupCreateRequest,
+  BackupCreateResponse,
+  BitacoraListResponse,
 } from '../types'
 
 export interface RegisterData {
@@ -50,6 +58,7 @@ export interface RegisterData {
   telefono?: string
   registro_univercotario?: string
   carrera?: string
+  face_embedding?: number[]
 }
 
 export const authApi = {
@@ -167,6 +176,8 @@ export const maquinasApi = {
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Maquina>(`/maquinas/${id}`, data),
   delete: (id: number) => api.delete(`/maquinas/${id}`),
+  alertasMantenimiento: () => api.get<AlertasMantenimientoResumen>('/maquinas/alertas-mantenimiento'),
+  evaluacion: (id: number) => api.get<MaquinaEvaluacion>(`/maquinas/${id}/evaluacion`),
   plantillaMantenimiento: (id: number) =>
     api.get<MantenimientoPlantilla>(`/maquinas/${id}/mantenimiento/plantilla`),
   listarMantenimientos: (id: number) =>
@@ -186,6 +197,19 @@ export const accesoApi = {
   historial: () => api.get<Acceso[]>('/acceso/historial'),
   nfcScan: (nfc_uid: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
     api.post<NfcScanResult>('/acceso/nfc-scan', { nfc_uid, modo }),
+  huellaScan: (huella_id: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
+    api.post<NfcScanResult>('/acceso/huella-scan', { huella_id, modo }),
+  faceScan: (embedding: number[], modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
+    api.post<NfcScanResult>('/acceso/face-scan', { embedding, modo }),
+  faceEnroll: (estudiante_id: number, embedding: number[]) =>
+    api.post<{ estudiante_id: number; nombre: string; tiene_rostro: boolean; mensaje: string }>(
+      '/acceso/face-enroll',
+      { estudiante_id, embedding },
+    ),
+  faceClear: (estudiante_id: number) =>
+    api.delete<{ estudiante_id: number; nombre: string; tiene_rostro: boolean; mensaje: string }>(
+      `/acceso/face-enroll/${estudiante_id}`,
+    ),
   manual: (codigo: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
     api.post<NfcScanResult>('/acceso/manual', { codigo, modo }),
   qrScan: (codigo: string, modo: 'auto' | 'entrada' | 'salida' = 'auto') =>
@@ -266,6 +290,22 @@ export const rutinasApi = {
   update: (id: number, data: Record<string, unknown>) =>
     api.patch<Rutina>(`/rutinas/${id}`, data),
   delete: (id: number) => api.delete(`/rutinas/${id}`),
+  misRecomendaciones: () => api.get<RutinaRecomendacion>('/rutinas/recomendaciones/mi'),
+  recomendacionesEstudiante: (estudianteId: number) =>
+    api.get<RutinaRecomendacion>(`/rutinas/recomendaciones/estudiante/${estudianteId}`),
+  registrarProgreso: (data: {
+    rutina_id: number
+    ejercicio_id: number
+    series_completadas?: number
+    repeticiones_logradas?: string
+    peso_kg?: number
+    dificultad_percibida?: number
+    notas?: string
+  }) => api.post<ProgresoEjercicio>('/rutinas/progreso', data),
+  miHistorialProgreso: (ejercicioId?: number) =>
+    api.get<ProgresoEjercicio[]>('/rutinas/progreso/mi-historial', {
+      params: ejercicioId ? { ejercicio_id: ejercicioId } : {},
+    }),
 }
 
 export const ejerciciosApi = {
@@ -350,4 +390,22 @@ export const fichasInscripcionApi = {
     api.get('/fichas-inscripcion/mi-ficha/export', { responseType: 'blob' }),
   exportar: (fichaId: number) =>
     api.get(`/fichas-inscripcion/${fichaId}/export`, { responseType: 'blob' }),
+}
+
+export const backupsApi = {
+  list: () => api.get<BackupInfo[]>('/backups/'),
+  create: (data: BackupCreateRequest) => api.post<BackupCreateResponse>('/backups/', data),
+  download: (filename: string) =>
+    api.get(`/backups/${encodeURIComponent(filename)}/download`, { responseType: 'blob' }),
+  delete: (filename: string) => api.delete(`/backups/${encodeURIComponent(filename)}`),
+}
+
+export const bitacoraApi = {
+  list: (params?: {
+    limit?: number
+    offset?: number
+    modulo?: string
+    accion?: string
+    q?: string
+  }) => api.get<BitacoraListResponse>('/bitacora/', { params }),
 }

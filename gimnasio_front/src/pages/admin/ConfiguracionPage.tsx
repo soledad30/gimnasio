@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FormEvent } from 'react'
-import { Banknote, Clock, MapPin, QrCode, Save, Share2 } from 'lucide-react'
+import { Banknote, Clock, HardDrive, MapPin, QrCode, Save, Share2, Ticket } from 'lucide-react'
 import { toast } from 'sonner'
 import { configuracionApi } from '@/api/services'
 import { getErrorMessage } from '@/api/client'
@@ -14,6 +14,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 function norm(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? '').trim()
   return s ? s : null
+}
+
+function normFloat(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? '').trim()
+  if (!s) return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
 }
 
 function normInt(v: FormDataEntryValue | null): number | null {
@@ -85,6 +92,31 @@ export function ConfiguracionPage() {
       toast.error('Los días de inscripción deben estar entre 1 y 31')
       return
     }
+    const precioAct = normFloat(fd.get('precio_inscripcion_actividad'))
+    const precioSala = normFloat(fd.get('precio_inscripcion_sala_maquinas'))
+    const capAct = normInt(fd.get('capacidad_sala_actividad'))
+    const capSala = normInt(fd.get('capacidad_sala_maquinas'))
+    const horasQr = normInt(fd.get('horas_validez_qr_pago'))
+    if (precioAct != null && precioAct < 0) {
+      toast.error('El precio de actividad no puede ser negativo')
+      return
+    }
+    if (precioSala != null && precioSala < 0) {
+      toast.error('El precio de sala de máquinas no puede ser negativo')
+      return
+    }
+    if (capAct != null && (capAct < 1 || capAct > 500)) {
+      toast.error('La capacidad de sala de actividad debe estar entre 1 y 500')
+      return
+    }
+    if (capSala != null && (capSala < 1 || capSala > 500)) {
+      toast.error('La capacidad de sala de máquinas debe estar entre 1 y 500')
+      return
+    }
+    if (horasQr != null && (horasQr < 1 || horasQr > 168)) {
+      toast.error('Las horas de validez del QR deben estar entre 1 y 168')
+      return
+    }
     saveMut.mutate({
       nombre_organizacion: norm(fd.get('nombre_organizacion')),
       ubicacion: norm(fd.get('ubicacion')),
@@ -103,6 +135,13 @@ export function ConfiguracionPage() {
       gym_open_time: openT,
       gym_close_time: closeT,
       dias_ventana_inscripcion: dias,
+      precio_inscripcion_actividad: precioAct,
+      precio_inscripcion_sala_maquinas: precioSala,
+      capacidad_sala_actividad: capAct,
+      capacidad_sala_maquinas: capSala,
+      horas_validez_qr_pago: horasQr,
+      backup_root: norm(fd.get('backup_root')),
+      backup_drive_path: norm(fd.get('backup_drive_path')),
     })
   }
 
@@ -288,12 +327,128 @@ export function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
+                <Ticket className="h-5 w-5" />
+                Inscripciones y precios
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="precio_inscripcion_actividad">Precio actividad (Bs.)</Label>
+                <Input
+                  id="precio_inscripcion_actividad"
+                  name="precio_inscripcion_actividad"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  defaultValue={data.precio_inscripcion_actividad ?? 50}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="precio_inscripcion_sala_maquinas">Precio sala máquinas (Bs.)</Label>
+                <Input
+                  id="precio_inscripcion_sala_maquinas"
+                  name="precio_inscripcion_sala_maquinas"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  defaultValue={data.precio_inscripcion_sala_maquinas ?? 80}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dias_ventana_inscripcion">Días de inscripción</Label>
+                <Input
+                  id="dias_ventana_inscripcion"
+                  name="dias_ventana_inscripcion"
+                  type="number"
+                  min={1}
+                  max={31}
+                  defaultValue={data.dias_ventana_inscripcion ?? 5}
+                  required
+                />
+                
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="capacidad_sala_actividad">Capacidad sala actividad</Label>
+                <Input
+                  id="capacidad_sala_actividad"
+                  name="capacidad_sala_actividad"
+                  type="number"
+                  min={1}
+                  max={500}
+                  defaultValue={data.capacidad_sala_actividad ?? 20}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="capacidad_sala_maquinas">Capacidad sala máquinas</Label>
+                <Input
+                  id="capacidad_sala_maquinas"
+                  name="capacidad_sala_maquinas"
+                  type="number"
+                  min={1}
+                  max={500}
+                  defaultValue={data.capacidad_sala_maquinas ?? 30}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="horas_validez_qr_pago">Validez QR de pago (horas)</Label>
+                <Input
+                  id="horas_validez_qr_pago"
+                  name="horas_validez_qr_pago"
+                  type="number"
+                  min={1}
+                  max={168}
+                  defaultValue={data.horas_validez_qr_pago ?? 24}
+                  required
+                />
+                
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="h-5 w-5" />
+                Respaldos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="backup_drive_path">Carpeta de Google Drive</Label>
+                <Input
+                  id="backup_drive_path"
+                  name="backup_drive_path"
+                  defaultValue={data.backup_drive_path ?? ''}
+                  placeholder="G:\Mi unidad\Backups\UAGRM-GYM o C:\Users\...\Google Drive\..."
+                />
+                
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="backup_root">Carpeta local de respaldos (opcional)</Label>
+                <Input
+                  id="backup_root"
+                  name="backup_root"
+                  defaultValue={data.backup_root ?? ''}
+                  placeholder="C:\backups\gimnasio o /var/backups/gimnasio"
+                />
+                
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 Reglas operativas
               </CardTitle>
               
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
+            <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="gym_open_time">Apertura</Label>
                 <Input
@@ -317,21 +472,6 @@ export function ConfiguracionPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">Formato HH:MM:SS</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dias_ventana_inscripcion">Días de inscripción</Label>
-                <Input
-                  id="dias_ventana_inscripcion"
-                  name="dias_ventana_inscripcion"
-                  type="number"
-                  min={1}
-                  max={31}
-                  defaultValue={data.dias_ventana_inscripcion ?? 5}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Cantidad de días antes del próximo mes para que el estudiante se inscriba (1–31)
-                </p>
               </div>
             </CardContent>
           </Card>

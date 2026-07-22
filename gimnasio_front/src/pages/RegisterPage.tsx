@@ -4,6 +4,7 @@ import { Dumbbell, Loader2 } from 'lucide-react'
 import { getErrorMessage } from '@/api/client'
 import { homePathForRol, useAuth } from '@/context/AuthContext'
 import { CarreraSelect } from '@/components/forms/CarreraSelect'
+import { FaceCaptureField } from '@/components/forms/FaceCaptureField'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +17,7 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [faceEmbedding, setFaceEmbedding] = useState<number[]>()
 
   if (loading) {
     return (
@@ -52,6 +54,7 @@ export function RegisterPage() {
         telefono: String(fd.get('telefono') ?? '') || undefined,
         registro_univercotario: String(fd.get('registro_univercotario') ?? '') || undefined,
         carrera: String(fd.get('carrera') ?? '') || undefined,
+        face_embedding: faceEmbedding,
       })
       navigate(homePathForRol(perfil.rol))
     } catch (err) {
@@ -89,7 +92,7 @@ export function RegisterPage() {
         <p className="text-xs text-muted-foreground">© UAGRM-GYM — Sistema de gestión</p>
       </div>
       <div className="flex items-center justify-center p-6 gym-gradient">
-        <Card className="w-full max-w-md border-border/60 bg-card/95 backdrop-blur">
+        <Card className="my-8 w-full max-w-md border-border/60 bg-card/95 backdrop-blur">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl">Crear cuenta</CardTitle>
             <CardDescription>Regístrate como estudiante del gimnasio</CardDescription>
@@ -118,6 +121,10 @@ export function RegisterPage() {
                 <Input id="registro_univercotario" name="registro_univercotario" />
               </div>
               <CarreraSelect id="carrera" />
+              <FaceCaptureField
+                onEmbeddingChange={setFaceEmbedding}
+                disabled={submitting}
+              />
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
                 <Input

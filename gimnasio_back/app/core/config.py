@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     PRECIO_INSCRIPCION_SALA_MAQUINAS: float = 80.0
     HORAS_VALIDEZ_QR_PAGO: int = 24
 
+    # Backup (admin / scripts)
+    BACKUP_ROOT: str = ""
+    BACKUP_DRIVE_PATH: str = ""
+    BACKUP_KEEP_LAST: int = 4
+
     class Config:
         env_file = ".env"
         case_sensitive = True

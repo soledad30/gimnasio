@@ -21,6 +21,29 @@ class NFCScanRequest(BaseModel):
         return m
 
 
+class HuellaScanRequest(BaseModel):
+    """Lector de huella (Proteus / físico). Reutiliza el mismo UID biométrico que NFC."""
+
+    huella_id: str = Field(..., min_length=4, max_length=64)
+    modo: str = Field(
+        "auto",
+        description="auto = alterna entrada/salida | entrada | salida",
+    )
+
+    @field_validator("modo")
+    @classmethod
+    def validar_modo_acceso(cls, v: str) -> str:
+        m = (v or "auto").strip().lower()
+        if m not in ("auto", "entrada", "salida"):
+            raise ValueError("modo debe ser auto, entrada o salida")
+        return m
+
+    @field_validator("huella_id")
+    @classmethod
+    def normalizar_huella_id(cls, v: str) -> str:
+        return (v or "").strip()
+
+
 class AccesoManualRequest(BaseModel):
     codigo: str = Field(..., min_length=2, max_length=100)
     modo: str = Field(
@@ -35,6 +58,33 @@ class AccesoManualRequest(BaseModel):
         if m not in ("auto", "entrada", "salida"):
             raise ValueError("modo debe ser auto, entrada o salida")
         return m
+
+
+class FaceEmbeddingRequest(BaseModel):
+    """Descriptor facial 128-d (face-api.js / similar)."""
+
+    embedding: List[float] = Field(..., min_length=64, max_length=512)
+    modo: str = Field("auto", description="auto | entrada | salida")
+
+    @field_validator("modo")
+    @classmethod
+    def validar_modo_acceso(cls, v: str) -> str:
+        m = (v or "auto").strip().lower()
+        if m not in ("auto", "entrada", "salida"):
+            raise ValueError("modo debe ser auto, entrada o salida")
+        return m
+
+
+class FaceEnrollRequest(BaseModel):
+    estudiante_id: int
+    embedding: List[float] = Field(..., min_length=64, max_length=512)
+
+
+class FaceEnrollResponse(BaseModel):
+    estudiante_id: int
+    nombre: str
+    tiene_rostro: bool
+    mensaje: str
 
 
 class AccesoResponse(BaseModel):
@@ -321,6 +371,67 @@ class RutinaResponse(BaseModel):
         from_attributes = True
 
 
+# ── Progreso y recomendaciones de rutina ─────────────────────────────────────
+class ProgresoEjercicioCreate(BaseModel):
+    rutina_id: int
+    ejercicio_id: int
+    fecha: Optional[date] = None
+    series_completadas: Optional[int] = Field(None, ge=0, le=20)
+    repeticiones_logradas: Optional[str] = Field(None, max_length=80)
+    peso_kg: Optional[float] = Field(None, ge=0, le=500)
+    dificultad_percibida: Optional[int] = Field(None, ge=1, le=5)
+    notas: Optional[str] = Field(None, max_length=500)
+
+
+class ProgresoEjercicioResponse(BaseModel):
+    id: int
+    estudiante_id: int
+    rutina_id: int
+    ejercicio_id: int
+    ejercicio_nombre: Optional[str] = None
+    fecha: date
+    series_completadas: Optional[int] = None
+    repeticiones_logradas: Optional[str] = None
+    peso_kg: Optional[float] = None
+    dificultad_percibida: Optional[int] = None
+    notas: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RendimientoResumen(BaseModel):
+    dias_analizados: int
+    accesos_ultimo_periodo: int
+    asistencias_ultimo_periodo: int
+    registros_progreso: int
+    nivel_actividad: str
+    cumplimiento_promedio: Optional[float] = None
+
+
+class AjusteEjercicioRecomendado(BaseModel):
+    ejercicio_id: int
+    nombre: str
+    series_actual: Optional[int] = None
+    repeticiones_actual: Optional[str] = None
+    series_sugerida: Optional[int] = None
+    repeticiones_sugerida: Optional[str] = None
+    peso_sugerido_kg: Optional[float] = None
+    accion: str
+    motivo: str
+
+
+class RutinaRecomendacionResponse(BaseModel):
+    estudiante_id: int
+    rutina_id: Optional[int] = None
+    rutina_nombre: Optional[str] = None
+    resumen: RendimientoResumen
+    ajustes: List[AjusteEjercicioRecomendado] = []
+    plantillas_sugeridas: List[RutinaResponse] = []
+    mensaje_general: str
+
+
 # ── Pago ──────────────────────────────────────────────────────────────────────
 class PagoCreate(BaseModel):
     estudiante_id: int
@@ -447,6 +558,34 @@ class MaquinaResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MaquinaEvaluacionResponse(BaseModel):
+    maquina_id: int
+    codigo: Optional[str] = None
+    nombre: str
+    categoria: Optional[str] = None
+    estado_maquina: str
+    proximo_preventivo: Optional[date] = None
+    dias_hasta_preventivo: Optional[int] = None
+    estado_preventivo: str
+    ultimo_preventivo: Optional[date] = None
+    anios_vida_util: int
+    edad_anios: Optional[float] = None
+    porcentaje_vida_util: Optional[float] = None
+    fecha_fin_vida_util: Optional[date] = None
+    estado_vida_util: str
+    sugerencia: str
+    prioridad: int = 0
+
+
+class AlertasMantenimientoResumen(BaseModel):
+    total_maquinas: int
+    preventivo_vencido: int
+    preventivo_proximo: int
+    vida_util_evaluacion: int
+    vida_util_reemplazo: int
+    maquinas: List[MaquinaEvaluacionResponse] = []
 
 
 class MantenimientoChecklistItem(BaseModel):

@@ -12,6 +12,7 @@ class RegisterRequest(BaseModel):
     telefono: Optional[str] = Field(None, max_length=20)
     registro_univercotario: Optional[str] = Field(None, max_length=100)
     carrera: Optional[str] = Field(None, max_length=150)
+    face_embedding: Optional[list[float]] = Field(None, min_length=128, max_length=128)
 
 
 class PerfilResponse(BaseModel):

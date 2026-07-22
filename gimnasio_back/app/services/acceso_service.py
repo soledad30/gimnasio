@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import and_, func, or_, select
@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.acceso import Acceso
 from app.models.estudiante import Estudiante
+from app.models.usuario import Usuario
 from app.schemas.schemas import (
     AccesoMonitorStats,
     AccesoResponse,
@@ -16,6 +17,13 @@ from app.schemas.schemas import (
 from app.services.base_service import BaseService
 from app.services.estudiante_service import EstudianteService, normalizar_codigo_acceso
 from app.services.ficha_inscripcion_service import FichaInscripcionService
+
+# Zona horaria de Bolivia (UTC-4, sin horario de verano)
+TZ_LOCAL = timezone(timedelta(hours=-4))
+
+
+def _now_local() -> datetime:
+    return datetime.now(TZ_LOCAL)
 
 
 def _hora_int(now: datetime) -> int:
@@ -98,9 +106,21 @@ class AccesoService(BaseService[Acceso]):
         )
         return result.scalar_one_or_none() is not None
 
+    async def _rol_personal(self, estudiante: Estudiante) -> Optional[str]:
+        """Si el perfil pertenece a personal (admin/recepción/instructor), devuelve el rol."""
+        if not estudiante.usuario_id:
+            return None
+        usuario = await self.db.get(Usuario, estudiante.usuario_id)
+        if not usuario:
+            return None
+        rol = (usuario.rol or "").lower()
+        if usuario.es_admin or rol in ("admin", "recepcion", "instructor"):
+            return rol or "admin"
+        return None
+
     async def _membresia_activa(self, estudiante: Estudiante) -> tuple[bool, str]:
         """Membresía = acceso a sala de máquinas (plan admin o pago mensual de máquinas)."""
-        hoy = date.today()
+        hoy = _now_local().date()
         if (
             estudiante.fechainicio_membresia is not None
             and estudiante.fechafin_membresia is not None
@@ -196,7 +216,7 @@ class AccesoService(BaseService[Acceso]):
         2) Segundo escaneo (con visita abierta) → salida.
         3) Tras salir → denegado (solo 1 ingreso por día).
         """
-        now = datetime.now(timezone.utc)
+        now = _now_local()
         hora_int = _hora_int(now)
         fecha_str = now.strftime("%Y-%m-%d")
         _ = (modo or "auto").strip().lower()  # compat API; siempre flujo unificado
@@ -230,6 +250,31 @@ class AccesoService(BaseService[Acceso]):
                 motivo="ya registró entrada y salida hoy; solo se permite un ingreso por día",
                 estudiante=estudiante,
                 nfc_uid=nfc_uid,
+            )
+
+        # Personal (admin/recepción/instructor): entra sin ficha ni membresía
+        rol_personal = await self._rol_personal(estudiante)
+        if rol_personal:
+            acceso = Acceso(
+                estudiante_id=estudiante.id,
+                fecha=fecha_str,
+                hora_entrada=hora_int,
+                nfc_uid_escaneado=nfc_uid,
+                acceso_concedido=True,
+            )
+            self.db.add(acceso)
+            await self.db.commit()
+            await self.db.refresh(acceso)
+            return NFCScanResponse(
+                acceso_concedido=True,
+                estudiante_id=estudiante.id,
+                nombre=estudiante.nombre,
+                carrera=estudiante.carrera,
+                registro_universitario=estudiante.registro_univercotario,
+                estado_membresia=f"personal ({rol_personal})",
+                acceso_id=acceso.id,
+                tipo_movimiento="entrada",
+                mensaje=f"¡Bienvenido/a, {estudiante.nombre}! Acceso de personal ({rol_personal}).",
             )
 
         # 1) Primera vez del día → validar ficha de inscripción
@@ -301,11 +346,11 @@ class AccesoService(BaseService[Acceso]):
     async def procesar_nfc(self, nfc_uid: str, modo: str = "auto") -> NFCScanResponse:
         estudiante = await EstudianteService(self.db).get_by_nfc(nfc_uid)
         if not estudiante:
-            now = datetime.now(timezone.utc)
+            now = _now_local()
             return await self._registrar_denegado(
                 fecha_str=now.strftime("%Y-%m-%d"),
                 hora_int=_hora_int(now),
-                motivo="NFC no registrado en el sistema",
+                motivo="Huella/NFC no registrado en el sistema",
                 nfc_uid=nfc_uid,
             )
         return await self._procesar_estudiante(estudiante, nfc_uid=nfc_uid, modo=modo)
@@ -326,11 +371,25 @@ class AccesoService(BaseService[Acceso]):
         )
         estudiante = result.scalar_one_or_none()
         if not estudiante:
-            now = datetime.now(timezone.utc)
+            now = _now_local()
             return await self._registrar_denegado(
                 fecha_str=now.strftime("%Y-%m-%d"),
                 hora_int=_hora_int(now),
                 motivo="Código no registrado en el sistema",
+            )
+        return await self._procesar_estudiante(estudiante, modo=modo)
+
+    async def procesar_face(self, embedding: list[float], modo: str = "auto") -> NFCScanResponse:
+        from app.services.face_service import FaceService
+
+        estudiante, dist = await FaceService(self.db).match(embedding)
+        if not estudiante:
+            now = _now_local()
+            detalle = f" (mejor dist={dist:.3f})" if dist is not None else ""
+            return await self._registrar_denegado(
+                fecha_str=now.strftime("%Y-%m-%d"),
+                hora_int=_hora_int(now),
+                motivo=f"Rostro no reconocido{detalle}",
             )
         return await self._procesar_estudiante(estudiante, modo=modo)
 
@@ -345,9 +404,9 @@ class AccesoService(BaseService[Acceso]):
         return [_to_acceso_response(a) for a in result.scalars().all()]
 
     async def get_monitor_stats(self) -> AccesoMonitorStats:
-        hoy = date.today()
+        hoy = _now_local().date()
         fecha_str = hoy.isoformat()
-        inicio_dia = datetime.combine(hoy, datetime.min.time()).replace(tzinfo=timezone.utc)
+        inicio_dia = datetime.combine(hoy, datetime.min.time()).replace(tzinfo=TZ_LOCAL)
 
         total_registrados = await self.db.scalar(select(func.count(Estudiante.id))) or 0
 
@@ -424,8 +483,8 @@ class AccesoService(BaseService[Acceso]):
         )
 
     async def get_alertas_seguridad(self, limit: int = 10) -> list[AlertaSeguridad]:
-        hoy = date.today()
-        inicio_dia = datetime.combine(hoy, datetime.min.time()).replace(tzinfo=timezone.utc)
+        hoy = _now_local().date()
+        inicio_dia = datetime.combine(hoy, datetime.min.time()).replace(tzinfo=TZ_LOCAL)
         result = await self.db.execute(
             select(Acceso)
             .where(
@@ -448,7 +507,8 @@ class AccesoService(BaseService[Acceso]):
                     id=acc.id,
                     mensaje=motivo,
                     tipo=tipo,
-                    hora=_hora_display(acc.hora_entrada) or acc.created_at.strftime("%H:%M"),
+                    hora=_hora_display(acc.hora_entrada)
+                    or acc.created_at.astimezone(TZ_LOCAL).strftime("%H:%M"),
                     detalle=acc.nfc_uid_escaneado,
                 )
             )

@@ -45,6 +45,7 @@ class EstudianteResponse(BaseModel):
     fechafin_membresia: Optional[date]
     nfc_uid: Optional[str]
     codigo_acceso: Optional[str] = None
+    tiene_rostro: bool = False
     created_at: datetime
 
     class Config:

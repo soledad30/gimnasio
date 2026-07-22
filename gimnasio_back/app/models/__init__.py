@@ -21,6 +21,8 @@ from app.models.asignacion_instructor import AsignacionInstructor
 from app.models.rol_permiso import RolPermiso
 from app.models.configuracion_sistema import ConfiguracionSistema
 from app.models.ficha_inscripcion import FichaInscripcion
+from app.models.progreso_ejercicio import ProgresoEjercicio
+from app.models.bitacora import Bitacora
 
 __all__ = [
     "Usuario", "Administrador", "Instructor", "Estudiante",
@@ -30,4 +32,6 @@ __all__ = [
     "RolPermiso",
     "ConfiguracionSistema",
     "FichaInscripcion",
+    "ProgresoEjercicio",
+    "Bitacora",
 ]

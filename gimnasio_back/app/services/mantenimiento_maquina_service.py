@@ -150,15 +150,55 @@ def checklist_vacio(categoria: Optional[str]) -> list[dict]:
     return result
 
 
-def calcular_proximo_mantenimiento(fecha: date, tipo: str) -> Optional[date]:
+# Intervalos en días según categoría (ISO 55000 / buenas prácticas gimnasio universitario)
+DIAS_PREVENTIVO = 180  # 6 meses — todas las categorías
+DIAS_LUBRICACION = {
+    "cardio": 30,
+    "fuerza": 90,
+    "funcional": 90,
+    "libre": 90,
+    "general": 60,
+}
+DIAS_LIMPIEZA = {
+    "cardio": 7,
+    "fuerza": 30,
+    "funcional": 30,
+    "libre": 30,
+    "general": 30,
+}
+ANIOS_VIDA_UTIL_DEFAULT = {
+    "cardio": 8,
+    "fuerza": 12,
+    "funcional": 10,
+    "libre": 10,
+    "general": 10,
+}
+DIAS_AVISO_PREVENTIVO = 15
+UMBRAL_VIDA_EVALUACION = 70
+UMBRAL_VIDA_MAYOR = 85
+UMBRAL_VIDA_REEMPLAZO = 100
+
+
+def vida_util_default(categoria: Optional[str]) -> int:
+    return ANIOS_VIDA_UTIL_DEFAULT.get(_categoria_key(categoria), 10)
+
+
+def calcular_proximo_mantenimiento(
+    fecha: date,
+    tipo: str,
+    categoria: Optional[str] = None,
+) -> Optional[date]:
     from datetime import timedelta
 
+    cat = _categoria_key(categoria)
     if tipo == "limpieza":
-        return fecha + timedelta(days=7)
+        return fecha + timedelta(days=DIAS_LIMPIEZA.get(cat, 30))
     if tipo == "lubricacion":
-        return fecha + timedelta(days=30)
+        return fecha + timedelta(days=DIAS_LUBRICACION.get(cat, 60))
     if tipo == "preventivo":
-        return fecha + timedelta(days=90)
+        return fecha + timedelta(days=DIAS_PREVENTIVO)
     if tipo == "correctivo":
         return None
+    if tipo == "predictivo":
+        return fecha + timedelta(days=DIAS_PREVENTIVO)
     return fecha + timedelta(days=60)

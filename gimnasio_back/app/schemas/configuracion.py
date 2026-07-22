@@ -51,6 +51,13 @@ class ConfiguracionSistemaResponse(BaseModel):
     gym_open_hour: int
     gym_close_hour: int
     dias_ventana_inscripcion: int
+    precio_inscripcion_actividad: float
+    precio_inscripcion_sala_maquinas: float
+    capacidad_sala_actividad: int
+    capacidad_sala_maquinas: int
+    horas_validez_qr_pago: int
+    backup_root: Optional[str] = None
+    backup_drive_path: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     class Config:
@@ -75,6 +82,13 @@ class ConfiguracionSistemaUpdate(BaseModel):
     gym_open_time: Optional[str] = None
     gym_close_time: Optional[str] = None
     dias_ventana_inscripcion: Optional[int] = Field(None, ge=1, le=31)
+    precio_inscripcion_actividad: Optional[float] = Field(None, ge=0)
+    precio_inscripcion_sala_maquinas: Optional[float] = Field(None, ge=0)
+    capacidad_sala_actividad: Optional[int] = Field(None, ge=1, le=500)
+    capacidad_sala_maquinas: Optional[int] = Field(None, ge=1, le=500)
+    horas_validez_qr_pago: Optional[int] = Field(None, ge=1, le=168)
+    backup_root: Optional[str] = Field(None, max_length=500)
+    backup_drive_path: Optional[str] = Field(None, max_length=500)
 
     @field_validator("gym_open_time", "gym_close_time")
     @classmethod

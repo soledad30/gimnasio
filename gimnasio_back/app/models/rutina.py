@@ -24,3 +24,4 @@ class Rutina(Base):
         cascade="all, delete-orphan",
         order_by="RutinaEjercicio.orden",
     )
+    progreso_ejercicios = relationship("ProgresoEjercicio", back_populates="rutina")

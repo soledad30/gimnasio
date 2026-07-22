@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Nfc, QrCode, Radio, UserRound } from 'lucide-react'
+import { Fingerprint, QrCode, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/api/client'
 import { accesoApi } from '@/api/services'
 import type { Acceso, NfcScanResult } from '@/types'
-import { QrCameraScanner } from '@/components/acceso/QrCameraScanner'
+import { UnifiedAccessCamera } from '@/components/acceso/UnifiedAccessCamera'
 import { UserAvatar } from '@/components/acceso/UserAvatar'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,12 @@ function MovimientoBadge({ tipo }: { tipo?: string | null }) {
   return <Badge variant="outline">Denegado</Badge>
 }
 
+function formatHora(hora?: number | null) {
+  if (hora == null) return '—'
+  const valor = String(hora).padStart(4, '0')
+  return `${valor.slice(0, 2)}:${valor.slice(2)}`
+}
+
 function HistorialItem({ acceso }: { acceso: Acceso }) {
   const nombre = acceso.estudiante_nombre ?? 'Usuario desconocido'
   const subtitulo = acceso.estudiante_carrera
@@ -35,10 +41,25 @@ function HistorialItem({ acceso }: { acceso: Acceso }) {
         <p className="truncate font-medium">{nombre}</p>
         <p className="truncate text-xs text-muted-foreground">{subtitulo}</p>
       </div>
-      <div className="text-right">
-        <p className="text-sm font-mono">{acceso.hora_display ?? '—'}</p>
-        <MovimientoBadge tipo={acceso.tipo_movimiento} />
-      </div>
+      {acceso.acceso_concedido ? (
+        <div className="space-y-1.5 text-right">
+          <div className="flex items-center justify-end gap-2">
+            <span className="font-mono text-sm">{formatHora(acceso.hora_entrada)}</span>
+            <MovimientoBadge tipo="entrada" />
+          </div>
+          {acceso.hora_salida != null && (
+            <div className="flex items-center justify-end gap-2">
+              <span className="font-mono text-sm">{formatHora(acceso.hora_salida)}</span>
+              <MovimientoBadge tipo="salida" />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-right">
+          <p className="font-mono text-sm">{acceso.hora_display ?? '—'}</p>
+          <MovimientoBadge tipo="denegado" />
+        </div>
+      )}
     </div>
   )
 }
@@ -53,8 +74,8 @@ export function AccesoPage() {
   const [lectorActivo, setLectorActivo] = useState(true)
 
   useEffect(() => {
-    qrInputRef.current?.focus()
-  }, [])
+    if (lectorActivo) nfcInputRef.current?.focus()
+  }, [lectorActivo])
 
   const sinMembresia =
     last?.motivo_denegacion?.toLowerCase().includes('membresía') ||
@@ -90,7 +111,14 @@ export function AccesoPage() {
   }
 
   const scanMut = useMutation({
-    mutationFn: (nfc_uid: string) => accesoApi.nfcScan(nfc_uid, 'auto').then((r) => r.data),
+    mutationFn: (id: string) => {
+      const value = id.trim()
+      // IDs de Proteus / huella → endpoint dedicado; resto sigue por NFC
+      if (value.toUpperCase().startsWith('HUELLA-')) {
+        return accesoApi.huellaScan(value, 'auto').then((r) => r.data)
+      }
+      return accesoApi.nfcScan(value, 'auto').then((r) => r.data)
+    },
     onSuccess: (data) => {
       setLast(data)
       invalidate()
@@ -128,36 +156,21 @@ export function AccesoPage() {
     }
   }, [])
 
-  const handleNfcScan = () => {
-    if (!uid.trim()) return
-    scanMut.mutate(uid.trim())
-  }
-
-  const simularRegistro = () => {
-    const demo = ['A1:B2:C3:D4', 'E5:F6:G7:H8', '221001234']
-    const pick = demo[Math.floor(Math.random() * demo.length)]
-    setUid(pick)
-    scanMut.mutate(pick)
-  }
-
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Control NFC — ingreso / salida</h1>
-        <p className="text-muted-foreground">
-          1.er escaneo del día = entrada · 2.º escaneo = salida · después no puede volver a entrar
-          hoy
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Control de acceso — ingreso / salida</h1>
+        
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 border-primary/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Nfc className="h-6 w-6 text-primary" />
-              Lector NFC
+              <Fingerprint className="h-6 w-6 text-primary" />
+              Lector huella / NFC
             </CardTitle>
-            <CardDescription>Acerque su carnet al lector</CardDescription>
+            
           </CardHeader>
           <CardContent className="space-y-4">
             <div
@@ -166,7 +179,7 @@ export function AccesoPage() {
               }`}
             >
               <div className="relative mb-4">
-                <Nfc
+                <Fingerprint
                   className={`h-20 w-20 ${lectorActivo ? 'animate-pulse text-primary' : 'text-muted-foreground'}`}
                 />
                 {lectorActivo && (
@@ -176,37 +189,32 @@ export function AccesoPage() {
                   </span>
                 )}
               </div>
-              <p className="text-lg font-medium">Acerque su carnet</p>
+              <p className="text-lg font-medium">Coloque el dedo / acerque el carnet</p>
               <p className="text-sm text-muted-foreground">
-                {lectorActivo ? 'Lector NFC activo (entrada / salida)' : 'Lector pausado'}
+                {lectorActivo
+                  ? 'Lector activo '
+                  : 'Lector pausado'}
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Input
-                ref={nfcInputRef}
-                value={uid}
-                onChange={(e) => setUid(e.target.value)}
-                placeholder="UID NFC o escaneo automático…"
-                className="font-mono"
-                disabled={!lectorActivo}
-                onKeyDown={(e) => e.key === 'Enter' && handleNfcScan()}
-              />
-              <Button onClick={handleNfcScan} disabled={!uid || scanMut.isPending || !lectorActivo}>
-                Registrar
-              </Button>
-            </div>
+            {/* Captura invisible para lector físico huella/NFC (modo teclado) */}
+            <input
+              ref={nfcInputRef}
+              type="text"
+              value={uid}
+              onChange={(e) => setUid(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && uid.trim() && lectorActivo) {
+                  scanMut.mutate(uid.trim())
+                }
+              }}
+              className="sr-only"
+              tabIndex={lectorActivo ? 0 : -1}
+              aria-hidden
+              autoComplete="off"
+            />
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={simularRegistro}
-                disabled={scanMut.isPending}
-              >
-                <Radio className="mr-2 h-4 w-4" />
-                Simular registro
-              </Button>
               <Button variant="outline" size="sm" onClick={() => setLectorActivo((v) => !v)}>
                 {lectorActivo ? 'Pausar lector' : 'Activar lector'}
               </Button>
@@ -260,14 +268,15 @@ export function AccesoPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <QrCode className="h-5 w-5" />
-              QR y acceso manual
+              Código manual
             </CardTitle>
-            
+            <CardDescription>
+              Si el QR no se lee por cámara, ingresá el código a mano.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <QrCameraScanner onScan={onQrCameraScan} pauseDecoding={manualMut.isPending} />
             <div className="space-y-2">
-              <Label htmlFor="codigo">Registro o Código escaneado/manual</Label>
+              <Label htmlFor="codigo">Registro o código del estudiante</Label>
               <Input
                 ref={qrInputRef}
                 id="codigo"
@@ -287,10 +296,18 @@ export function AccesoPage() {
             >
               Registrar ingreso / salida
             </Button>
-            
           </CardContent>
         </Card>
       </div>
+
+      <UnifiedAccessCamera
+        pauseQr={manualMut.isPending || scanMut.isPending}
+        onQrScan={onQrCameraScan}
+        onFaceResult={(data) => {
+          setLast(data)
+          invalidate()
+        }}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loadingMonitor ? (

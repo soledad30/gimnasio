@@ -116,6 +116,13 @@ function etiquetaActividad(a: Actividad) {
   return partes.join(' · ')
 }
 
+function actividadHabilitadaParaMes(a: Actividad, mes: string): boolean {
+  if (!a.vigencia_inicio || !a.vigencia_fin) return true
+  const mesInicio = `${mes.slice(0, 7)}-01`
+  const mesFin = ultimoDiaMesISO(mesInicio)
+  return mesInicio <= a.vigencia_fin && a.vigencia_inicio <= mesFin
+}
+
 export function StudentReservasPage() {
   const qc = useQueryClient()
   const [openInscripcion, setOpenInscripcion] = useState(false)
@@ -219,9 +226,10 @@ export function StudentReservasPage() {
     const idsInscritos = new Set(
       miasDelMes.map((i) => i.actividad_id).filter((id): id is number => id != null)
     )
-    const ocupadas = actividades.filter((a) => idsInscritos.has(a.id))
+    const habilitadas = actividades.filter((a) => actividadHabilitadaParaMes(a, mes))
+    const ocupadas = habilitadas.filter((a) => idsInscritos.has(a.id))
 
-    return actividades.filter((a) => {
+    return habilitadas.filter((a) => {
       if (idsInscritos.has(a.id)) return false
       return !ocupadas.some((otra) => actividadesChocan(a, otra))
     })
@@ -513,10 +521,7 @@ export function StudentReservasPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-muted-foreground">
-                  Puedes estar en una o más actividades del mes. No se puede volver a habilitar la
-                  misma actividad si ya la tienes activa o pendiente, ni una que choque de horario.
-                </p>
+                
                 {actividadesDisponibles.length === 0 && (
                   <p className="text-xs text-amber-600">
                     No hay más actividades disponibles (ya inscritas, no habilitadas o con choque de
@@ -525,11 +530,7 @@ export function StudentReservasPage() {
                 )}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Se generará tu referencia de pago y el QR Simple del gimnasio (válido 24 h). También
-              lo recibirás por notificación y correo. Paga con Yape, banca móvil o transferencia
-              antes de que empiece el mes.
-            </p>
+            
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpenInscripcion(false)}>
                 Cancelar

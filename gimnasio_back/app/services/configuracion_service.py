@@ -30,16 +30,14 @@ def resolver_tiempos(row: ConfiguracionSistema) -> tuple[str, str]:
     return open_t, close_t
 
 
-def _aplicar_operativa(row: ConfiguracionSistema) -> tuple[str, str, int]:
+def _aplicar_operativa(row: ConfiguracionSistema) -> dict:
     open_t, close_t = resolver_tiempos(row)
     settings.GYM_OPEN_TIME = open_t
     settings.GYM_CLOSE_TIME = close_t
     settings.GYM_OPEN_HOUR = int(open_t.split(":")[0])
     settings.GYM_CLOSE_HOUR = int(close_t.split(":")[0])
-    # Si cierra después de :00, la última hora completa se cuenta (ej. 19:30 → 19+1=20 para bloques)
     close_secs = tiempo_a_segundos(close_t)
     if close_secs % 3600 != 0:
-        # mantener CLOSE_HOUR como techo, scheduling usará el tiempo completo
         pass
     dias = (
         int(row.dias_ventana_inscripcion)
@@ -47,7 +45,49 @@ def _aplicar_operativa(row: ConfiguracionSistema) -> tuple[str, str, int]:
         else settings.DIAS_VENTANA_INSCRIPCION
     )
     settings.DIAS_VENTANA_INSCRIPCION = dias
-    return open_t, close_t, dias
+
+    settings.PRECIO_INSCRIPCION_ACTIVIDAD = float(
+        row.precio_inscripcion_actividad
+        if row.precio_inscripcion_actividad is not None
+        else settings.PRECIO_INSCRIPCION_ACTIVIDAD
+    )
+    settings.PRECIO_INSCRIPCION_SALA_MAQUINAS = float(
+        row.precio_inscripcion_sala_maquinas
+        if row.precio_inscripcion_sala_maquinas is not None
+        else settings.PRECIO_INSCRIPCION_SALA_MAQUINAS
+    )
+    settings.CAPACIDAD_SALA_ACTIVIDAD = int(
+        row.capacidad_sala_actividad
+        if row.capacidad_sala_actividad is not None
+        else settings.CAPACIDAD_SALA_ACTIVIDAD
+    )
+    settings.CAPACIDAD_SALA_MAQUINAS = int(
+        row.capacidad_sala_maquinas
+        if row.capacidad_sala_maquinas is not None
+        else settings.CAPACIDAD_SALA_MAQUINAS
+    )
+    settings.HORAS_VALIDEZ_QR_PAGO = int(
+        row.horas_validez_qr_pago
+        if row.horas_validez_qr_pago is not None
+        else settings.HORAS_VALIDEZ_QR_PAGO
+    )
+
+    # Backup: DB tiene prioridad; si está vacío se mantiene .env
+    if row.backup_root and str(row.backup_root).strip():
+        settings.BACKUP_ROOT = str(row.backup_root).strip()
+    if row.backup_drive_path and str(row.backup_drive_path).strip():
+        settings.BACKUP_DRIVE_PATH = str(row.backup_drive_path).strip()
+
+    return {
+        "open_t": open_t,
+        "close_t": close_t,
+        "dias": dias,
+        "precio_actividad": settings.PRECIO_INSCRIPCION_ACTIVIDAD,
+        "precio_sala": settings.PRECIO_INSCRIPCION_SALA_MAQUINAS,
+        "cap_actividad": settings.CAPACIDAD_SALA_ACTIVIDAD,
+        "cap_maquinas": settings.CAPACIDAD_SALA_MAQUINAS,
+        "horas_qr": settings.HORAS_VALIDEZ_QR_PAGO,
+    }
 
 
 class ConfiguracionService:
@@ -70,6 +110,21 @@ class ConfiguracionService:
             if row.dias_ventana_inscripcion is None:
                 row.dias_ventana_inscripcion = settings.DIAS_VENTANA_INSCRIPCION
                 changed = True
+            if row.precio_inscripcion_actividad is None:
+                row.precio_inscripcion_actividad = settings.PRECIO_INSCRIPCION_ACTIVIDAD
+                changed = True
+            if row.precio_inscripcion_sala_maquinas is None:
+                row.precio_inscripcion_sala_maquinas = settings.PRECIO_INSCRIPCION_SALA_MAQUINAS
+                changed = True
+            if row.capacidad_sala_actividad is None:
+                row.capacidad_sala_actividad = settings.CAPACIDAD_SALA_ACTIVIDAD
+                changed = True
+            if row.capacidad_sala_maquinas is None:
+                row.capacidad_sala_maquinas = settings.CAPACIDAD_SALA_MAQUINAS
+                changed = True
+            if row.horas_validez_qr_pago is None:
+                row.horas_validez_qr_pago = settings.HORAS_VALIDEZ_QR_PAGO
+                changed = True
             if changed:
                 await self.db.commit()
                 await self.db.refresh(row)
@@ -83,6 +138,13 @@ class ConfiguracionService:
             gym_open_hour=settings.GYM_OPEN_HOUR,
             gym_close_hour=settings.GYM_CLOSE_HOUR,
             dias_ventana_inscripcion=settings.DIAS_VENTANA_INSCRIPCION,
+            precio_inscripcion_actividad=settings.PRECIO_INSCRIPCION_ACTIVIDAD,
+            precio_inscripcion_sala_maquinas=settings.PRECIO_INSCRIPCION_SALA_MAQUINAS,
+            capacidad_sala_actividad=settings.CAPACIDAD_SALA_ACTIVIDAD,
+            capacidad_sala_maquinas=settings.CAPACIDAD_SALA_MAQUINAS,
+            horas_validez_qr_pago=settings.HORAS_VALIDEZ_QR_PAGO,
+            backup_root=settings.BACKUP_ROOT or None,
+            backup_drive_path=settings.BACKUP_DRIVE_PATH or None,
         )
         self.db.add(row)
         await self.db.commit()
@@ -105,7 +167,9 @@ class ConfiguracionService:
         return row
 
     def to_public_dict(self, row: ConfiguracionSistema) -> dict:
-        open_t, close_t, dias = _aplicar_operativa(row)
+        meta = _aplicar_operativa(row)
+        open_t = meta["open_t"]
+        close_t = meta["close_t"]
         return {
             "nombre_organizacion": row.nombre_organizacion,
             "ubicacion": row.ubicacion,
@@ -125,6 +189,13 @@ class ConfiguracionService:
             "gym_close_time": close_t,
             "gym_open_hour": int(open_t.split(":")[0]),
             "gym_close_hour": int(close_t.split(":")[0]),
-            "dias_ventana_inscripcion": dias,
+            "dias_ventana_inscripcion": meta["dias"],
+            "precio_inscripcion_actividad": meta["precio_actividad"],
+            "precio_inscripcion_sala_maquinas": meta["precio_sala"],
+            "capacidad_sala_actividad": meta["cap_actividad"],
+            "capacidad_sala_maquinas": meta["cap_maquinas"],
+            "horas_validez_qr_pago": meta["horas_qr"],
+            "backup_root": (row.backup_root or settings.BACKUP_ROOT or None) or None,
+            "backup_drive_path": (row.backup_drive_path or settings.BACKUP_DRIVE_PATH or None) or None,
             "updated_at": row.updated_at,
         }

@@ -82,6 +82,7 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE instructores ADD COLUMN IF NOT EXISTS fotourl VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE instructores ALTER COLUMN especialidad TYPE VARCHAR(500)"))
         await conn.execute(text("ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS codigo_acceso VARCHAR(20)"))
+        await conn.execute(text("ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS face_embedding TEXT"))
         await conn.execute(text("ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS usuario_id INTEGER"))
         await conn.execute(text("ALTER TABLE notificaciones ALTER COLUMN estudiante_id DROP NOT NULL"))
         # FK suave si aún no existe (ignorar error en re-arranques)
@@ -228,6 +229,27 @@ async def lifespan(app: FastAPI):
             text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS qr_pago_contenido VARCHAR(500)")
         )
         await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS precio_inscripcion_actividad DOUBLE PRECISION")
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS precio_inscripcion_sala_maquinas DOUBLE PRECISION"
+            )
+        )
+        await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS capacidad_sala_actividad INTEGER")
+        )
+        await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS capacidad_sala_maquinas INTEGER")
+        )
+        await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS horas_validez_qr_pago INTEGER")
+        )
+        await conn.execute(text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS backup_root VARCHAR(500)"))
+        await conn.execute(
+            text("ALTER TABLE configuracion_sistema ADD COLUMN IF NOT EXISTS backup_drive_path VARCHAR(500)")
+        )
+        await conn.execute(
             text(
                 """
                 UPDATE configuracion_sistema SET
@@ -253,10 +275,16 @@ async def lifespan(app: FastAPI):
         from app.services.rol_service import RolService
         await RolService(db).seed_defaults_if_empty()
     async with AsyncSessionLocal() as db:
-        from app.services.notificacion_service import NotificacionService
-        await NotificacionService(db).procesar_alertas_vencimiento()
-        await NotificacionService(db).procesar_alertas_ficha_inscripcion(dias_aviso=15)
+        from app.services.rol_service import RolService
+        await RolService(db).sync_new_default_permissions()
+    async with AsyncSessionLocal() as db:
+        from app.services.notificacion_service import procesar_todas_las_alertas
+        await procesar_todas_las_alertas(db)
+
+    from app.core.scheduler import start_scheduler, shutdown_scheduler
+    start_scheduler()
     yield
+    shutdown_scheduler()
     await engine.dispose()
 
 
@@ -283,6 +311,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def bitacora_middleware(request, call_next):
+    response = await call_next(request)
+    try:
+        from app.services.bitacora_service import log_request_to_bitacora
+
+        await log_request_to_bitacora(request, response.status_code)
+    except Exception:
+        pass
+    return response
+
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

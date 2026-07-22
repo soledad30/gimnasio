@@ -1,0 +1,7 @@
+# IDs de huella de demostración (mismos que el firmware Arduino)
+# Asignalos a estudiantes en Admin → Estudiantes → Asignar NFC / Huella
+
+HUELLA-001
+HUELLA-002
+HUELLA-003
+HUELLA-004

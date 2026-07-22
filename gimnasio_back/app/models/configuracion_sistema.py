@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Float, Integer, String
 
 from app.db.base import Base
 
@@ -33,3 +33,14 @@ class ConfiguracionSistema(Base):
     gym_open_hour = Column(Integer, nullable=True)
     gym_close_hour = Column(Integer, nullable=True)
     dias_ventana_inscripcion = Column(Integer, nullable=True)
+
+    # Inscripciones y precios (editables por admin)
+    precio_inscripcion_actividad = Column(Float, nullable=True)
+    precio_inscripcion_sala_maquinas = Column(Float, nullable=True)
+    capacidad_sala_actividad = Column(Integer, nullable=True)
+    capacidad_sala_maquinas = Column(Integer, nullable=True)
+    horas_validez_qr_pago = Column(Integer, nullable=True)
+
+    # Respaldos (carpeta local y Google Drive empresarial)
+    backup_root = Column(String(500), nullable=True)
+    backup_drive_path = Column(String(500), nullable=True)

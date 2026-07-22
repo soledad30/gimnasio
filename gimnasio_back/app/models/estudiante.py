@@ -26,6 +26,12 @@ class Estudiante(Base):
     # NFC tag para control de acceso
     nfc_uid = Column(String(64), unique=True, index=True, nullable=True)
     codigo_acceso = Column(String(20), unique=True, index=True, nullable=True)
+    # Embedding facial (JSON array de floats, p.ej. face-api.js 128-d)
+    face_embedding = Column(String, nullable=True)
+
+    @property
+    def tiene_rostro(self) -> bool:
+        return bool(self.face_embedding and self.face_embedding.strip())
 
     # Relationships
     usuario = relationship("Usuario", back_populates="estudiante")
@@ -37,3 +43,4 @@ class Estudiante(Base):
     inscripciones = relationship("Inscripcion", back_populates="estudiante")
     rutinas = relationship("Rutina", back_populates="estudiante")
     fichas_inscripcion = relationship("FichaInscripcion", back_populates="estudiante")
+    progreso_ejercicios = relationship("ProgresoEjercicio", back_populates="estudiante")

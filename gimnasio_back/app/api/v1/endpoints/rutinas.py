@@ -12,7 +12,17 @@ from app.core.dependencies import (
 )
 from app.models.instructor import Instructor
 from app.models.rutina import Rutina
-from app.schemas.schemas import RutinaAsignarCreate, RutinaCreate, RutinaResponse, RutinaUpdate
+from app.schemas.schemas import (
+    ProgresoEjercicioCreate,
+    ProgresoEjercicioResponse,
+    RutinaAsignarCreate,
+    RutinaCreate,
+    RutinaRecomendacionResponse,
+    RutinaResponse,
+    RutinaUpdate,
+)
+from app.services.progreso_ejercicio_service import ProgresoEjercicioService
+from app.services.rutina_recomendacion_service import RutinaRecomendacionService
 from app.services.rutina_service import (
     asignar_rutina_a_estudiante,
     build_rutina_response,
@@ -108,6 +118,58 @@ async def mis_rutinas(
 ):
     rutinas = await list_rutinas_by_estudiante(db, estudiante.id)
     return [build_rutina_response(r) for r in rutinas]
+
+
+@router.get("/recomendaciones/mi", response_model=RutinaRecomendacionResponse)
+async def mis_recomendaciones(
+    estudiante=Depends(get_current_estudiante),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sugerencias personalizadas según accesos, asistencias y progreso registrado."""
+    return await RutinaRecomendacionService(db).generar_recomendaciones(estudiante.id)
+
+
+@router.get("/recomendaciones/estudiante/{estudiante_id}", response_model=RutinaRecomendacionResponse)
+async def recomendaciones_estudiante(
+    estudiante_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_usuario),
+):
+    return await RutinaRecomendacionService(db).generar_recomendaciones(estudiante_id)
+
+
+@router.post("/progreso", response_model=ProgresoEjercicioResponse, status_code=201)
+async def registrar_progreso(
+    data: ProgresoEjercicioCreate,
+    estudiante=Depends(get_current_estudiante),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ProgresoEjercicioService(db).registrar(estudiante.id, data)
+
+
+@router.get("/progreso/mi-historial", response_model=List[ProgresoEjercicioResponse])
+async def mi_historial_progreso(
+    ejercicio_id: int | None = None,
+    limit: int = 50,
+    estudiante=Depends(get_current_estudiante),
+    db: AsyncSession = Depends(get_db),
+):
+    return await ProgresoEjercicioService(db).list_historial(
+        estudiante.id, ejercicio_id=ejercicio_id, limit=limit
+    )
+
+
+@router.get("/progreso/estudiante/{estudiante_id}", response_model=List[ProgresoEjercicioResponse])
+async def historial_progreso_estudiante(
+    estudiante_id: int,
+    ejercicio_id: int | None = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_usuario),
+):
+    return await ProgresoEjercicioService(db).list_historial(
+        estudiante_id, ejercicio_id=ejercicio_id, limit=limit
+    )
 
 
 @router.get("/estudiante/{estudiante_id}", response_model=List[RutinaResponse])

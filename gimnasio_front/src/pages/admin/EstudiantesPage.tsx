@@ -149,7 +149,7 @@ export function EstudiantesPage() {
           <CardDescription>
             {busquedaTrim
               ? `${data.length} resultado(s) para «${busquedaTrim}»`
-              : `${data.length} estudiante(s) — mostrando los más recientes`}
+              : `${data.length} estudiante(s) `}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -373,15 +373,15 @@ export function EstudiantesPage() {
       <Dialog open={nfcModal !== null} onOpenChange={() => setNfcModal(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Asignar tarjeta NFC</DialogTitle>
+            <DialogTitle>Asignar NFC / huella</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="nfc">UID NFC</Label>
+            <Label htmlFor="nfc">UID biométrico (NFC o HUELLA-xxx)</Label>
             <Input
               id="nfc"
               value={nfcUid}
               onChange={(ev) => setNfcUid(ev.target.value)}
-              placeholder="A1:B2:C3:D4"
+              placeholder="HUELLA-001 o A1:B2:C3:D4"
             />
           </div>
           <DialogFooter>

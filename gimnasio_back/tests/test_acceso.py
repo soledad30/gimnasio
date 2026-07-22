@@ -73,6 +73,20 @@ class TestNFCBlackBox:
         assert response.status_code == 422
 
 
+class TestHuellaProteus:
+    """POST /api/v1/acceso/huella-scan — mismo flujo que NFC (simulación Proteus)."""
+
+    async def test_huella_no_registrada(self, client: AsyncClient):
+        response = await client.post(
+            f"{API}/acceso/huella-scan",
+            json={"huella_id": f"HUELLA-{uuid.uuid4().hex[:6].upper()}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["acceso_concedido"] is False
+        assert "no registrado" in data["motivo_denegacion"].lower()
+
+
 class TestAccesoStaff:
     """Endpoints que requieren personal autorizado."""
 

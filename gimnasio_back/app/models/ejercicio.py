@@ -18,3 +18,4 @@ class Ejercicio(Base):
 
     maquina = relationship("Maquina")
     rutinas_assoc = relationship("RutinaEjercicio", back_populates="ejercicio", cascade="all, delete-orphan")
+    progreso_registros = relationship("ProgresoEjercicio", back_populates="ejercicio")

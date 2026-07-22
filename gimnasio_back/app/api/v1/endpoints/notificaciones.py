@@ -15,7 +15,7 @@ from app.schemas.schemas import (
     NotificacionMasivaResult,
     NotificacionResponse,
 )
-from app.services.notificacion_service import NotificacionService
+from app.services.notificacion_service import NotificacionService, procesar_todas_las_alertas
 
 router = APIRouter()
 
@@ -53,11 +53,8 @@ async def procesar_alertas_vencimiento(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    """Genera notificaciones automáticas de membresías y fichas de inscripción."""
-    svc = NotificacionService(db)
-    membresias = await svc.procesar_alertas_vencimiento()
-    fichas = await svc.procesar_alertas_ficha_inscripcion(dias_aviso=15)
-    return {"membresias": membresias, "fichas_inscripcion": fichas}
+    """Genera notificaciones automáticas de membresías, fichas y actividades."""
+    return await procesar_todas_las_alertas(db)
 
 
 @router.get("/", response_model=List[NotificacionResponse])

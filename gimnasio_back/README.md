@@ -244,6 +244,18 @@ Respuesta del endpoint:
 
 ---
 
+## Backup trimestral
+
+Respaldo de PostgreSQL + `uploads/` en ZIP. **Admin → Respaldos** en el frontend, o script manual:
+
+```powershell
+.\scripts\backup_gym.ps1
+```
+
+Ver [`scripts/BACKUP.md`](scripts/BACKUP.md).
+
+---
+
 ## Stack Tecnológico
 
 | Componente | Tecnología |

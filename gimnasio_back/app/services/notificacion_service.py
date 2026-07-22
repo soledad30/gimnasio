@@ -26,6 +26,133 @@ class NotificacionService:
         )
         return result.scalar_one_or_none() is not None
 
+    async def _ya_notificado_usuario(self, usuario_id: int, titulo: str) -> bool:
+        hoy = date.today()
+        result = await self.db.execute(
+            select(Notificacion).where(
+                and_(
+                    Notificacion.usuario_id == usuario_id,
+                    Notificacion.titulo == titulo,
+                    Notificacion.fecha == hoy,
+                )
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def procesar_alertas_actividades(self, dias_aviso: int = 7) -> dict:
+        """Avisa a admins y al instructor dueño cuando una actividad está por vencer o venció.
+
+        Pensado para que el staff pueda reactivar (renovar la vigencia) a tiempo.
+        """
+        from sqlalchemy.orm import selectinload
+
+        from app.models.actividad import Actividad
+        from app.models.usuario import Usuario
+
+        hoy = date.today()
+        limite = hoy + timedelta(days=dias_aviso)
+        creadas = 0
+
+        admins_result = await self.db.execute(
+            select(Usuario.id).where(Usuario.activo.is_(True), Usuario.rol == "admin")
+        )
+        admin_ids = [uid for (uid,) in admins_result.all()]
+
+        result = await self.db.execute(
+            select(Actividad)
+            .options(selectinload(Actividad.instructor))
+            .where(Actividad.vigencia_fin.isnot(None))
+        )
+        actividades = list(result.scalars().all())
+
+        for act in actividades:
+            if act.vigencia_fin < hoy:
+                titulo = f"Actividad vencida: {act.nombre}"
+                mensaje = (
+                    f"La actividad '{act.nombre}' venció el {act.vigencia_fin}. "
+                    f"Reactívala (renueva su vigencia) si debe continuar el próximo periodo."
+                )
+            elif act.vigencia_fin <= limite:
+                dias_restantes = (act.vigencia_fin - hoy).days
+                titulo = f"Actividad por vencer: {act.nombre}"
+                mensaje = (
+                    f"La actividad '{act.nombre}' vence el {act.vigencia_fin} "
+                    f"({dias_restantes} día(s) restantes). "
+                    f"Reactívala si quieres que siga disponible para inscripción."
+                )
+            else:
+                continue
+
+            destinatarios = set(admin_ids)
+            if act.instructor and act.instructor.usuario_id:
+                destinatarios.add(act.instructor.usuario_id)
+
+            for uid in destinatarios:
+                if await self._ya_notificado_usuario(uid, titulo):
+                    continue
+                self.db.add(
+                    Notificacion(
+                        usuario_id=uid,
+                        fecha=hoy,
+                        titulo=titulo,
+                        mensaje=mensaje,
+                        tipo="actividad",
+                        leida=False,
+                    )
+                )
+                creadas += 1
+
+        await self.db.commit()
+        return {"notificaciones_creadas": creadas, "fecha": hoy.isoformat()}
+
+    async def procesar_alertas_mantenimiento(self) -> dict:
+        """Alertas de preventivo (6 meses) y vida útil de máquinas para administradores."""
+        from app.models.usuario import Usuario
+        from app.services.maquina_evaluacion_service import MaquinaEvaluacionService
+
+        hoy = date.today()
+        creadas = 0
+        evaluaciones = await MaquinaEvaluacionService(self.db).evaluar_todas()
+
+        admins_result = await self.db.execute(
+            select(Usuario.id).where(Usuario.activo.is_(True), Usuario.rol == "admin")
+        )
+        admin_ids = [uid for (uid,) in admins_result.all()]
+
+        for ev in evaluaciones:
+            titulo: str | None = None
+            if ev.estado_preventivo == "vencido":
+                titulo = f"Mantenimiento vencido: {ev.codigo or ev.nombre}"
+            elif ev.estado_preventivo == "proximo":
+                titulo = f"Mantenimiento próximo: {ev.codigo or ev.nombre}"
+            elif ev.estado_vida_util == "reemplazo":
+                titulo = f"Reemplazo recomendado: {ev.codigo or ev.nombre}"
+            elif ev.estado_vida_util == "mantenimiento_mayor":
+                titulo = f"Vida útil crítica: {ev.codigo or ev.nombre}"
+            elif ev.estado_vida_util == "evaluacion":
+                titulo = f"Evaluación de equipo: {ev.codigo or ev.nombre}"
+
+            if not titulo:
+                continue
+
+            for uid in admin_ids:
+                if await self._ya_notificado_usuario(uid, titulo):
+                    continue
+                self.db.add(
+                    Notificacion(
+                        usuario_id=uid,
+                        fecha=hoy,
+                        titulo=titulo,
+                        mensaje=ev.sugerencia,
+                        tipo="mantenimiento",
+                        leida=False,
+                    )
+                )
+                creadas += 1
+
+        await self.db.commit()
+        return {"notificaciones_creadas": creadas, "fecha": hoy.isoformat()}
+
     async def procesar_alertas_vencimiento(self, dias_aviso: int = 7) -> dict:
         hoy = date.today()
         limite = hoy + timedelta(days=dias_aviso)
@@ -440,3 +567,18 @@ class NotificacionService:
             "alcance": alcance_norm,
             "destinatarios": destinatarios,
         }
+
+
+async def procesar_todas_las_alertas(db: AsyncSession) -> dict:
+    """Ejecuta todos los procesadores de alertas automáticas (reutilizable)."""
+    svc = NotificacionService(db)
+    membresias = await svc.procesar_alertas_vencimiento()
+    fichas = await svc.procesar_alertas_ficha_inscripcion(dias_aviso=15)
+    actividades = await svc.procesar_alertas_actividades()
+    mantenimiento = await svc.procesar_alertas_mantenimiento()
+    return {
+        "membresias": membresias,
+        "fichas_inscripcion": fichas,
+        "actividades": actividades,
+        "mantenimiento_maquinas": mantenimiento,
+    }

@@ -394,10 +394,7 @@ export function ReportesPage() {
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             Exportar reportes
           </CardTitle>
-          <CardDescription>
-            Informe profesional en PDF/Excel (tablas + gráficos claros). Los CSV son el detalle
-            crudo del período.
-          </CardDescription>
+          
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">

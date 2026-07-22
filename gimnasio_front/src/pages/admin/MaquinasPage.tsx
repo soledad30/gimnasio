@@ -1,16 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { ImageIcon, Loader2, Plus, Search } from 'lucide-react'
+import { ImageIcon, Loader2, Plus, Search, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { getErrorMessage, getMediaUrl } from '@/api/client'
 import { maquinasApi } from '@/api/services'
-import type { Maquina } from '@/types'
+import type { Maquina, MaquinaEvaluacion } from '@/types'
 import { MaquinaFoto } from '@/components/maquinas/MaquinaFoto'
 import { MantenimientoMaquinaDialog } from '@/components/maquinas/MantenimientoMaquinaDialog'
 import { DeleteConfirmDialog } from '@/components/crud/DeleteConfirmDialog'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,29 @@ function estadoBadge(estado: string) {
   return { variant: 'outline' as const, label: estado.replace(/_/g, ' ') }
 }
 
+function badgeMantenimiento(ev?: MaquinaEvaluacion) {
+  if (!ev) return null
+  if (ev.estado_preventivo === 'vencido') {
+    return { label: 'Preventivo vencido', className: 'bg-red-500/15 text-red-400 border-red-500/30' }
+  }
+  if (ev.estado_preventivo === 'proximo') {
+    return {
+      label: `Preventivo en ${ev.dias_hasta_preventivo}d`,
+      className: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    }
+  }
+  if (ev.estado_vida_util === 'reemplazo') {
+    return { label: 'Reemplazo', className: 'bg-red-500/15 text-red-400 border-red-500/30' }
+  }
+  if (ev.estado_vida_util === 'mantenimiento_mayor') {
+    return { label: 'Vida útil crítica', className: 'bg-orange-500/15 text-orange-400 border-orange-500/30' }
+  }
+  if (ev.estado_vida_util === 'evaluacion') {
+    return { label: 'Evaluar equipo', className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' }
+  }
+  return null
+}
+
 export function MaquinasPage() {
   const qc = useQueryClient()
   const [mode, setMode] = useState<ModalMode>(null)
@@ -96,6 +120,17 @@ export function MaquinasPage() {
     queryKey: ['maquinas'],
     queryFn: () => maquinasApi.list().then((r) => r.data),
   })
+
+  const { data: alertas, isLoading: loadingAlertas } = useQuery({
+    queryKey: ['maquinas-alertas'],
+    queryFn: () => maquinasApi.alertasMantenimiento().then((r) => r.data),
+  })
+
+  const evalMap = useMemo(() => {
+    const map = new Map<number, MaquinaEvaluacion>()
+    alertas?.maquinas.forEach((e) => map.set(e.maquina_id, e))
+    return map
+  }, [alertas])
 
   const filtradas = useMemo(() => {
     return data.filter((m) => {
@@ -248,6 +283,28 @@ export function MaquinasPage() {
       </div>
 
       <div className="mt-6 space-y-4">
+        {loadingAlertas ? (
+          <Skeleton className="h-28 w-full rounded-xl" />
+        ) : alertas && alertas.total_maquinas > 0 ? (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Wrench className="h-5 w-5 text-primary" />
+                Mantenimiento predictivo
+              </CardTitle>
+              <CardDescription>
+                Preventivo cada 6 meses y evaluación de vida útil según fecha de adquisición.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 text-sm">
+              <Badge variant="destructive">{alertas.preventivo_vencido} vencido(s)</Badge>
+              <Badge variant="warning">{alertas.preventivo_proximo} próximo(s)</Badge>
+              <Badge variant="outline">{alertas.vida_util_evaluacion} evaluación</Badge>
+              <Badge variant="destructive">{alertas.vida_util_reemplazo} reemplazo</Badge>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -292,13 +349,19 @@ export function MaquinasPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filtradas.map((m) => {
               const estado = estadoBadge(m.estado_maquina)
+              const ev = evalMap.get(m.id)
+              const mantBadge = badgeMantenimiento(ev)
               return (
                 <Card
                   key={m.id}
-                  className="overflow-hidden border-border/60 transition-colors hover:border-primary/30"
+                  className={cn(
+                    'overflow-hidden border-border/60 transition-colors hover:border-primary/30',
+                    ev?.estado_preventivo === 'vencido' && 'border-red-500/40',
+                    ev?.estado_vida_util === 'reemplazo' && 'border-red-500/40',
+                  )}
                 >
                   <CardContent className="p-4">
-                    <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                       {m.categoria ? (
                         <Badge
                           variant="outline"
@@ -309,9 +372,16 @@ export function MaquinasPage() {
                       ) : (
                         <span />
                       )}
-                      <Badge variant={estado.variant} className="shrink-0 text-xs">
-                        {estado.label}
-                      </Badge>
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {mantBadge && (
+                          <Badge variant="outline" className={cn('text-xs', mantBadge.className)}>
+                            {mantBadge.label}
+                          </Badge>
+                        )}
+                        <Badge variant={estado.variant} className="shrink-0 text-xs">
+                          {estado.label}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex gap-3">
                       <div className="flex min-w-0 flex-1 flex-col">
@@ -338,7 +408,17 @@ export function MaquinasPage() {
                           {m.anios_vida_util != null && (
                             <div>
                               <dt className="inline font-medium text-foreground">Vida útil: </dt>
-                              <dd className="inline">{m.anios_vida_util} años</dd>
+                              <dd className="inline">
+                                {m.anios_vida_util} años
+                                {ev?.porcentaje_vida_util != null &&
+                                  ` (${ev.porcentaje_vida_util}% usado)`}
+                              </dd>
+                            </div>
+                          )}
+                          {ev?.proximo_preventivo && (
+                            <div>
+                              <dt className="inline font-medium text-foreground">Próx. preventivo: </dt>
+                              <dd className="inline">{ev.proximo_preventivo}</dd>
                             </div>
                           )}
                         </dl>
@@ -548,7 +628,10 @@ export function MaquinasPage() {
           <DialogHeader>
             <DialogTitle>{selected?.nombre}</DialogTitle>
           </DialogHeader>
-          {selected && (
+          {selected && (() => {
+            const ev = evalMap.get(selected.id)
+            const mantBadge = badgeMantenimiento(ev)
+            return (
             <div className="space-y-4">
               <MaquinaFoto
                 nombre={selected.nombre}
@@ -559,6 +642,11 @@ export function MaquinasPage() {
                 {selected.categoria && (
                   <Badge variant="outline" className={cn('border', categoriaStyle(selected.categoria))}>
                     {categoriaLabel(selected.categoria)}
+                  </Badge>
+                )}
+                {mantBadge && (
+                  <Badge variant="outline" className={cn('text-xs', mantBadge.className)}>
+                    {mantBadge.label}
                   </Badge>
                 )}
                 <Badge variant={estadoBadge(selected.estado_maquina).variant}>
@@ -587,7 +675,22 @@ export function MaquinasPage() {
                 {selected.anios_vida_util != null && (
                   <div>
                     <dt className="font-medium">Vida útil</dt>
-                    <dd className="text-muted-foreground">{selected.anios_vida_util} años</dd>
+                    <dd className="text-muted-foreground">
+                      {selected.anios_vida_util} años
+                      {ev?.porcentaje_vida_util != null && ` (${ev.porcentaje_vida_util}% usado)`}
+                    </dd>
+                  </div>
+                )}
+                {ev?.proximo_preventivo && (
+                  <div>
+                    <dt className="font-medium">Próximo preventivo</dt>
+                    <dd className="text-muted-foreground">{ev.proximo_preventivo}</dd>
+                  </div>
+                )}
+                {ev?.ultimo_preventivo && (
+                  <div>
+                    <dt className="font-medium">Último preventivo</dt>
+                    <dd className="text-muted-foreground">{ev.ultimo_preventivo}</dd>
                   </div>
                 )}
                 {selected.fecha_adquisicion && (
@@ -603,8 +706,19 @@ export function MaquinasPage() {
                   </div>
                 )}
               </dl>
+              {ev?.sugerencia && (
+                <Alert className="border-amber-500/40 bg-amber-500/10">
+                  <AlertTitle className="text-amber-800 dark:text-amber-300">
+                    Mantenimiento predictivo
+                  </AlertTitle>
+                  <AlertDescription className="text-amber-900 dark:text-amber-200">
+                    {ev.sugerencia}
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
-          )}
+            )
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setMode(null)}>
               Cerrar
@@ -629,7 +743,10 @@ export function MaquinasPage() {
         maquina={mantMaquina}
         open={mantDialogOpen}
         onOpenChange={setMantDialogOpen}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['maquinas'] })}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['maquinas'] })
+          qc.invalidateQueries({ queryKey: ['maquinas-alertas'] })
+        }}
       />
 
       <DeleteConfirmDialog
