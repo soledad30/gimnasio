@@ -4,8 +4,8 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import axios from 'axios'
 import { getErrorMessage } from '@/api/client'
-import { actividadesApi, configuracionApi, inscripcionesApi, membresiasApi, reservasApi } from '@/api/services'
-import type { Actividad, Inscripcion, Membresia } from '@/types'
+import { actividadesApi, configuracionApi, inscripcionesApi, membresiasApi, pagosApi, reservasApi } from '@/api/services'
+import type { Actividad, Inscripcion, Membresia, Pago } from '@/types'
 import { QrPagoPanel } from '@/components/pagos/QrPagoPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -166,6 +166,21 @@ export function StudentReservasPage() {
     queryKey: ['mis-reservas'],
     queryFn: () => reservasApi.mis().then((r) => r.data),
   })
+
+  const { data: misPagos = [], isLoading: loadingPagos } = useQuery({
+    queryKey: ['mis-pagos'],
+    queryFn: () => pagosApi.mis().then((r) => r.data),
+  })
+
+  async function abrirComprobante(pagoId: number) {
+    try {
+      const res = await pagosApi.miComprobante(pagoId)
+      const url = URL.createObjectURL(res.data)
+      window.open(url, '_blank', 'noopener')
+    } catch (e) {
+      toast.error(getErrorMessage(e))
+    }
+  }
 
   const filasInscripcion = useMemo((): FilaInscripcion[] => {
     const filas: FilaInscripcion[] = []
@@ -387,6 +402,11 @@ export function StudentReservasPage() {
                         <Badge variant={fila.estadoVariant}>{fila.estadoLabel}</Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
+                        {i && i.estado === 1 && i.pago_id && (
+                          <Button size="sm" variant="outline" onClick={() => abrirComprobante(i.pago_id!)}>
+                            Comprobante
+                          </Button>
+                        )}
                         {i && i.estado === 3 && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => setPagoIns(i)}>
@@ -426,8 +446,51 @@ export function StudentReservasPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Mis comprobantes de pago</CardTitle>
+         
+        </CardHeader>
+        <CardContent>
+          {loadingPagos ? (
+            <Skeleton className="h-24 w-full" />
+          ) : misPagos.length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">
+              Aún no tenés pagos confirmados
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead>Método</TableHead>
+                  <TableHead>Referencia</TableHead>
+                  <TableHead className="text-right">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {misPagos.map((p: Pago) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.fecha}</TableCell>
+                    <TableCell>Bs. {p.monto}</TableCell>
+                    <TableCell className="capitalize">{p.metodo}</TableCell>
+                    <TableCell>{p.referencia || '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => abrirComprobante(p.id)}>
+                        Ver comprobante
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Reservas de clases (día específico)</CardTitle>
-          <CardDescription>Requiere inscripción mensual confirmada</CardDescription>
+          
         </CardHeader>
         <CardContent>
           {loadingRes ? (
@@ -473,12 +536,34 @@ export function StudentReservasPage() {
           <form
             onSubmit={(e: FormEvent<HTMLFormElement>) => {
               e.preventDefault()
+              if (createInsMut.isPending) return
               const fd = new FormData(e.currentTarget)
               const tipo = fd.get('tipo') as string
+              const actividadId =
+                tipo === 'actividad' ? Number(fd.get('actividad_id')) : undefined
+
+              if (tipo === 'actividad' && actividadId) {
+                const mes = ventana?.mes_objetivo?.slice(0, 7)
+                const yaInscrita = inscripciones.some(
+                  (i) =>
+                    i.tipo === 'actividad' &&
+                    i.actividad_id === actividadId &&
+                    i.mes_inicio.slice(0, 7) === mes &&
+                    (i.estado === 1 || i.estado === 3),
+                )
+                if (yaInscrita) {
+                  const nombre =
+                    actividades.find((a) => a.id === actividadId)?.nombre || 'esta actividad'
+                  toast.error(
+                    `Ya estás inscrito/a en «${nombre}» para este mes. No podés duplicar la inscripción.`,
+                  )
+                  return
+                }
+              }
+
               createInsMut.mutate({
                 tipo,
-                actividad_id:
-                  tipo === 'actividad' ? Number(fd.get('actividad_id')) : undefined,
+                actividad_id: actividadId,
               })
             }}
             className="space-y-4"
@@ -524,8 +609,8 @@ export function StudentReservasPage() {
                 
                 {actividadesDisponibles.length === 0 && (
                   <p className="text-xs text-amber-600">
-                    No hay más actividades disponibles (ya inscritas, no habilitadas o con choque de
-                    horario).
+                    No hay más actividades disponibles: ya estás inscrito/a, no están habilitadas
+                    para el mes o chocan de horario con otra inscripción.
                   </p>
                 )}
               </div>
@@ -535,7 +620,13 @@ export function StudentReservasPage() {
               <Button type="button" variant="outline" onClick={() => setOpenInscripcion(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createInsMut.isPending}>
+              <Button
+                type="submit"
+                disabled={
+                  createInsMut.isPending ||
+                  (tipoInscripcion === 'actividad' && actividadesDisponibles.length === 0)
+                }
+              >
                 {createInsMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Inscribirme
               </Button>

@@ -234,8 +234,9 @@ async def validar_nueva_inscripcion_actividad(
         raise HTTPException(
             status_code=409,
             detail=(
-                f"No se puede habilitar de nuevo la misma actividad '{actividad.nombre}' "
-                f"para ese mes (ya tienes una inscripción activa o pendiente)"
+                f"Ya estás inscrito/a en la actividad '{actividad.nombre}' "
+                f"para {formatear_mes(mes_inicio)}. "
+                "No podés volver a inscribirte a la misma actividad el mismo mes."
             ),
         )
 

@@ -126,6 +126,11 @@ export const instructoresApi = {
 export const pagosApi = {
   list: () => api.get<Pago[]>('/pagos/'),
   create: (data: Record<string, unknown>) => api.post<Pago>('/pagos/', data),
+  mis: () => api.get<Pago[]>('/pagos/mis'),
+  comprobante: (pagoId: number) =>
+    api.get(`/pagos/${pagoId}/comprobante`, { responseType: 'blob' }),
+  miComprobante: (pagoId: number) =>
+    api.get(`/pagos/mis/${pagoId}/comprobante`, { responseType: 'blob' }),
 }
 
 export const actividadesApi = {

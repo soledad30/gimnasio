@@ -265,6 +265,63 @@ async def lifespan(app: FastAPI):
                 """
             )
         )
+        # Cancelar duplicados activos/pendientes (misma actividad + mes) dejando el más antiguo
+        await conn.execute(
+            text(
+                """
+                UPDATE inscripciones AS i
+                SET estado = 0
+                WHERE i.tipo = 'actividad'
+                  AND i.estado IN (1, 3)
+                  AND i.actividad_id IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM inscripciones AS j
+                    WHERE j.estudiante_id = i.estudiante_id
+                      AND j.actividad_id = i.actividad_id
+                      AND j.mes_inicio = i.mes_inicio
+                      AND j.tipo = 'actividad'
+                      AND j.estado IN (1, 3)
+                      AND j.id < i.id
+                  )
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                UPDATE inscripciones AS i
+                SET estado = 0
+                WHERE i.tipo = 'sala_maquinas'
+                  AND i.estado IN (1, 3)
+                  AND EXISTS (
+                    SELECT 1 FROM inscripciones AS j
+                    WHERE j.estudiante_id = i.estudiante_id
+                      AND j.mes_inicio = i.mes_inicio
+                      AND j.tipo = 'sala_maquinas'
+                      AND j.estado IN (1, 3)
+                      AND j.id < i.id
+                  )
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_inscripcion_actividad_mes_activa
+                ON inscripciones (estudiante_id, actividad_id, mes_inicio)
+                WHERE tipo = 'actividad' AND estado IN (1, 3) AND actividad_id IS NOT NULL
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_inscripcion_sala_mes_activa
+                ON inscripciones (estudiante_id, mes_inicio)
+                WHERE tipo = 'sala_maquinas' AND estado IN (1, 3)
+                """
+            )
+        )
     await seed_ejercicios_default()
     await seed_salas_default()
     async with AsyncSessionLocal() as db:
@@ -317,9 +374,12 @@ app.add_middleware(
 async def bitacora_middleware(request, call_next):
     response = await call_next(request)
     try:
+        import asyncio
+
         from app.services.bitacora_service import log_request_to_bitacora
 
-        await log_request_to_bitacora(request, response.status_code)
+        # No bloquear la respuesta HTTP por la auditoría
+        asyncio.create_task(log_request_to_bitacora(request, response.status_code))
     except Exception:
         pass
     return response

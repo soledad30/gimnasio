@@ -6,9 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.estudiante import Estudiante
+from app.models.inscripcion import Inscripcion
 from app.models.membresia import Membresia
 from app.models.pago import Pago
 from app.schemas.schemas import PagoCreate, PagoResponse
+from app.services.configuracion_service import ConfiguracionService
+from app.services.pago_comprobante_service import render_comprobante_pago_html
 
 
 def to_pago_response(pago: Pago) -> PagoResponse:
@@ -50,7 +53,27 @@ class PagoService:
 
     async def get_loaded(self, pago_id: int) -> Pago | None:
         result = await self.db.execute(
-            select(Pago).options(selectinload(Pago.estudiante)).where(Pago.id == pago_id)
+            select(Pago)
+            .options(
+                selectinload(Pago.estudiante),
+                selectinload(Pago.membresia),
+            )
+            .where(Pago.id == pago_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _load_inscripcion(self, pago: Pago) -> Inscripcion | None:
+        if not pago.inscripcion_id:
+            result = await self.db.execute(
+                select(Inscripcion)
+                .options(selectinload(Inscripcion.actividad))
+                .where(Inscripcion.pago_id == pago.id)
+            )
+            return result.scalar_one_or_none()
+        result = await self.db.execute(
+            select(Inscripcion)
+            .options(selectinload(Inscripcion.actividad))
+            .where(Inscripcion.id == pago.inscripcion_id)
         )
         return result.scalar_one_or_none()
 
@@ -63,3 +86,27 @@ class PagoService:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def list_by_estudiante(self, estudiante_id: int, limit: int = 100) -> list[Pago]:
+        result = await self.db.execute(
+            select(Pago)
+            .options(selectinload(Pago.estudiante))
+            .where(Pago.estudiante_id == estudiante_id)
+            .order_by(Pago.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def render_comprobante_html(self, pago_id: int) -> str:
+        pago = await self.get_loaded(pago_id)
+        if not pago:
+            raise HTTPException(status_code=404, detail="Pago no encontrado")
+        ins = await self._load_inscripcion(pago)
+        cfg = await ConfiguracionService(self.db).get()
+        org = {
+            "nombre_organizacion": cfg.nombre_organizacion,
+            "ubicacion": cfg.ubicacion,
+            "telefono_contacto": cfg.telefono_contacto,
+            "email_contacto": cfg.email_contacto,
+        }
+        return render_comprobante_pago_html(pago, org=org, inscripcion=ins)

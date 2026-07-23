@@ -405,12 +405,13 @@ export function PagosPage() {
                   <TableHead>Monto</TableHead>
                   <TableHead>Método</TableHead>
                   <TableHead>Referencia</TableHead>
+                  <TableHead className="text-right">Comprobante</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No hay pagos registrados
                     </TableCell>
                   </TableRow>
@@ -424,6 +425,23 @@ export function PagosPage() {
                         <Badge variant="secondary" className="capitalize">{p.metodo}</Badge>
                       </TableCell>
                       <TableCell>{p.referencia || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              const res = await pagosApi.comprobante(p.id)
+                              const url = URL.createObjectURL(res.data)
+                              window.open(url, '_blank', 'noopener')
+                            } catch (e) {
+                              toast.error(getErrorMessage(e))
+                            }
+                          }}
+                        >
+                          Ver / PDF
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

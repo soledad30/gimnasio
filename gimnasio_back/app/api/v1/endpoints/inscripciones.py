@@ -258,7 +258,7 @@ async def _crear_inscripcion(
     elif await inscripcion_duplicada(db, estudiante_id, tipo, mes, actividad_id):
         raise HTTPException(
             status_code=409,
-            detail="Ya existe una inscripción activa o pendiente de sala de máquinas para ese mes",
+            detail="Ya estás inscrito/a en sala de máquinas para ese mes.",
         )
 
     referencia = generar_referencia_pago()
@@ -276,11 +276,25 @@ async def _crear_inscripcion(
         creado_por_admin=creado_por_admin,
     )
     db.add(obj)
-    await db.flush()
+    try:
+        await db.flush()
+        ins = await _load_inscripcion(db, obj.id)
+        await _enviar_solicitud_pago(db, ins, act, creado_por_admin=creado_por_admin)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        from sqlalchemy.exc import IntegrityError
 
-    ins = await _load_inscripcion(db, obj.id)
-    await _enviar_solicitud_pago(db, ins, act, creado_por_admin=creado_por_admin)
-    await db.commit()
+        if isinstance(exc, IntegrityError):
+            nombre = act.nombre if act else "esta actividad"
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Ya estás inscrito/a en '{nombre}' para ese mes. "
+                    "No podés duplicar la misma inscripción."
+                ),
+            ) from exc
+        raise
     return await _load_inscripcion(db, obj.id)
 
 

@@ -327,6 +327,7 @@ export interface Pago {
   estudiante_id: number
   estudiante_nombre?: string | null
   membresia_id?: number | null
+  inscripcion_id?: number | null
   monto: string
   metodo: string
   referencia?: string | null
